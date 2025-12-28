@@ -5,6 +5,7 @@ Handles chunking, translation via LLM, and navbar injection.
 import os
 import re
 import argparse
+# pylint: disable=import-error
 from llama_cpp import Llama
 
 # translation pipeline for GitHub Action
@@ -172,23 +173,23 @@ def get_smart_chunks(text):
     for part in raw_parts:
         if not part or not part.strip():
             continue
-
-        p = part.strip()
+        
+        stripped_part = part.strip()
 
         # Treat blockquotes as prose
-        if p.startswith('>'):
-            chunks.append(("prose", p))
+        if stripped_part.startswith('>'):
+            chunks.append(("prose", stripped_part))
             continue
 
         if (
-            p.startswith(('<div', '<details', '<section', '<table', '```')) or
-            p.startswith('<!--') or p.endswith('-->') or
-            re.match(r'!\[.*?\]\(.*?\)', p) or
-            re.match(r'\[.*?\]\(.*?\)', p)
+            stripped_part.startswith(('<div', '<details', '<section', '<table', '```')) or
+            stripped_part.startswith('<!--') or stripped_part.endswith('-->') or
+            re.match(r'!\[.*?\]\(.*?\)', stripped_part) or
+            re.match(r'\[.*?\]\(.*?\)', stripped_part)
         ):
-            chunks.append(("struct", p))
+            chunks.append(("struct", stripped_part))
         else:
-            chunks.append(("prose", p))
+            chunks.append(("prose", stripped_part))
 
     return chunks
 
@@ -199,25 +200,27 @@ def merge_small_chunks(chunks, min_chars=50):
     i = 0
     while i < len(chunks):
         ctype, ctext = chunks[i]
-        
-        if ctype == "prose" and (ctext.startswith('#') or len(ctext) < min_chars) and i + 1 < len(chunks):
+
+        # Check if chunk is too small or is a header, and merge with next if possible
+        is_small = len(ctext) < min_chars
+        if ctype == "prose" and (ctext.startswith('#') or is_small) and i + 1 < len(chunks):
             next_ctype, next_ctext = chunks[i+1]
             combined_text = ctext + "\n\n" + next_ctext
             new_type = "hybrid" if next_ctype == "struct" else "prose"
             merged.append((new_type, combined_text))
-            i += 2 
+            i += 2
         else:
             merged.append((ctype, ctext))
             i += 1
     return merged
 
 
-# 3. Prompts (minimal)
-def translate_chunk(text, llm, system_header, system_prose, lang_guidance=None, is_lone_header=False):
+# 3. Prompts
+def translate_chunk(text, llm, prompts, lang_guidance=None, is_lone_header=False):
     """Translate a single chunk using llama-cpp-python."""
-    current_system_prompt = system_header if is_lone_header else system_prose
+    current_system_prompt = prompts['header'] if is_lone_header else prompts['prose']
     if lang_guidance and not is_lone_header:
-        current_system_prompt = f"{system_prose}\n\nADDITIONAL GUIDANCE:\n{lang_guidance}"
+        current_system_prompt = f"{prompts['prose']}\n\nADDITIONAL GUIDANCE:\n{lang_guidance}"
 
     prompt = (
         f"<|START_OF_TURN_TOKEN|><|SYSTEM_TOKEN|>\n{current_system_prompt}\n<|END_OF_TURN_TOKEN|>\n"
@@ -281,8 +284,8 @@ def get_system_prompts(target_lang_name):
         "- DO NOT generate any content, lists, or descriptions under the header.\n"
         "- Preserve the '#' symbols exactly.\n"
         "- Output ONLY the translated header.\n"
-        "- Preserve original formatting, punctuation, whitespace, and markdown/code symbols exactly; "
-        "do NOT normalize, reflow, or 'fix' the input."
+        "- Preserve original formatting, punctuation, whitespace, and markdown/code symbols exactly;"
+        " do NOT normalize, reflow, or 'fix' the input."
     )
 
     prose = (
@@ -309,7 +312,7 @@ def load_guidance(lang):
     return ""
 
 
-def process_chunks(chunks, llm, lang, system_header, system_prose, lang_guidance):
+def process_chunks(chunks, llm, lang, prompts, lang_guidance):
     """Translate chunks and return joined text."""
     final_output = []
     multiplier = HIGH_MULTIPLIER_MAP.get(lang, 2.5)
@@ -321,7 +324,7 @@ def process_chunks(chunks, llm, lang, system_header, system_prose, lang_guidance
 
         is_lone_header = ctext.strip().startswith('#') and '\n' not in ctext.strip()
         translated = translate_chunk(
-            ctext, llm, system_header, system_prose, lang_guidance, is_lone_header
+            ctext, llm, prompts, lang_guidance, is_lone_header
         )
 
         if len(translated) > multiplier * len(ctext) or any(f in translated for f in FORBIDDEN):
@@ -333,47 +336,23 @@ def process_chunks(chunks, llm, lang, system_header, system_prose, lang_guidance
     return ''.join(final_output)
 
 
-def main(lang, model_path='', nav_target='README.md'):
-    """Run translation for a single language.
-
-    Parameters:
-    - lang: language code
-    - model_path: path to GGUF model file
-    - nav_target: README path relative to repo root
-    """
-    target_lang_name = LANG_MAP.get(lang, "English")
-
-    system_header, system_prose = get_system_prompts(target_lang_name)
-    lang_guidance = load_guidance(lang)
-
-    # Use current working directory for target repo files
-    readme_path = os.path.abspath(nav_target)
-    output_dir = os.path.join(os.getcwd(), "locales")
-    output_path = os.path.join(output_dir, f"README.{lang}.md")
-
-    # Initialize LLM here to avoid import-time side-effects
-    mp = model_path or os.path.join(BASE_DIR, 'models', 'aya-expanse-8b-Q4_K_M.gguf')
-    llm = Llama(model_path=mp, n_ctx=8192, n_threads=2, verbose=False)
-
-    os.makedirs(output_dir, exist_ok=True)
-
-    with open(readme_path, 'r', encoding='utf-8') as f:
-        content = f.read()
-
+def run_translation_pipeline(content, llm, lang, prompts, lang_guidance):
+    """Execute the chunking and translation steps."""
     chunks = get_smart_chunks(content)
     chunks = split_struct_blockquotes(chunks)
     chunks = merge_small_chunks(chunks)
 
-    full_text = process_chunks(chunks, llm, lang, system_header, system_prose, lang_guidance)
-
+    full_text = process_chunks(chunks, llm, lang, prompts, lang_guidance)
+    
+    # Post-processing: Fix relative paths
     full_text = re.sub(r'(\[.*?\]\()(?!(?:http|/|#|\.\./))', r'\1../', full_text)
     full_text = re.sub(r'((?:src|href)=["\'])(?!(?:http|/|#|\.\./))', r'\1../', full_text)
+    
+    return full_text
 
-    with open(output_path, 'w', encoding='utf-8') as f:
-        f.write(full_text)
 
-    # Inject navbar into repository README (top)
-    # Discover all locale files under the locales folder and collect language codes
+def update_navbar_in_readme(readme_path, output_dir, lang):
+    """Discover locales and update the README navbar."""
     locales_dir = output_dir
     discovered = []
     if os.path.isdir(locales_dir):
@@ -397,6 +376,44 @@ def main(lang, model_path='', nav_target='README.md'):
 
     with open(readme_path, 'w', encoding='utf-8') as f:
         f.write(updated)
+
+
+def main(lang, model_path='', nav_target='README.md'):
+    """Run translation for a single language.
+
+    Parameters:
+    - lang: language code
+    - model_path: path to GGUF model file
+    - nav_target: README path relative to repo root
+    """
+    target_lang_name = LANG_MAP.get(lang, "English")
+
+    header_prompt, prose_prompt = get_system_prompts(target_lang_name)
+    prompts = {'header': header_prompt, 'prose': prose_prompt}
+    lang_guidance = load_guidance(lang)
+
+    # Use current working directory for target repo files
+    readme_path = os.path.abspath(nav_target)
+    output_dir = os.path.join(os.getcwd(), "locales")
+    output_path = os.path.join(output_dir, f"README.{lang}.md")
+
+    # Initialize LLM here to avoid import-time side-effects
+    # pylint: disable=line-too-long
+    mp = model_path or os.path.join(BASE_DIR, 'models', 'aya-expanse-8b-Q4_K_M.gguf')
+    llm = Llama(model_path=mp, n_ctx=8192, n_threads=2, verbose=False)
+
+    os.makedirs(output_dir, exist_ok=True)
+
+    with open(readme_path, 'r', encoding='utf-8') as f:
+        content = f.read()
+
+    translated_text = run_translation_pipeline(content, llm, lang, prompts, lang_guidance)
+
+    with open(output_path, 'w', encoding='utf-8') as f:
+        f.write(translated_text)
+
+    update_navbar_in_readme(readme_path, output_dir, lang)
+    
     print(f'[SUCCESS] Wrote translated locales to {output_path} and injected navbar into {readme_path}')
 
 

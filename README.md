@@ -55,7 +55,7 @@ jobs:
           token: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}
 
       - name: Run README Translator
-        uses: DataBoySu/databoysu-readme-translator@main
+        uses: DataBoySu/databoysu-readme-translator@v1
         with:
           lang: ${{ matrix.lang }}
 
