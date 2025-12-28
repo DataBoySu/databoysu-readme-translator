@@ -41,6 +41,35 @@ runs:
     - name: Checkout repository
       uses: actions/checkout@v4
 
+    - name: Resolve token and verify (fast-fail)
+      shell: bash
+      run: |
+        set -euo pipefail
+        echo "[action] Resolving token using input: '${{ inputs.token_name }}'"
+        TOKEN="${{ secrets[ inputs.token_name ] }}"
+        if [ -z "$TOKEN" ]; then
+          echo "[action] Named secret empty; falling back to built-in GITHUB_TOKEN"
+          TOKEN="${{ secrets.GITHUB_TOKEN }}"
+        fi
+        if [ -z "$TOKEN" ]; then
+          echo "No token available. Set 'token_name' to a repository secret or provide GITHUB_TOKEN." >&2
+          exit 1
+        fi
+        echo "GITHUB_TOKEN=$TOKEN" >> "$GITHUB_ENV"
+
+        if [ "${{ inputs.commit }}" = 'true' ]; then
+          echo "[action] Verifying token scopes via GitHub API"
+          headers=$(curl -sI -H "Authorization: token $TOKEN" https://api.github.com/user || true)
+          echo "$headers"
+          scopes=$(echo "$headers" | tr -d '\r' | awk -F': ' '/^X-OAuth-Scopes/ {print tolower($2)}' || true)
+          if [ -z "$scopes" ]; then
+            echo "Could not determine token scopes. Ensure the secret is valid." >&2
+            exit 1
+          fi
+          echo "Token scopes: $scopes"
+          echo "$scopes" | grep -q "repo" || { echo "Token missing 'repo' scope (or equivalent). Aborting." >&2; exit 1; }
+        fi
+
     - name: Setup Python
       uses: actions/setup-python@v4
       with:
@@ -53,7 +82,6 @@ runs:
 
     - name: Run translator (entrypoint)
       env:
-        GITHUB_TOKEN: ${{ secrets[ inputs.token_name ] }}
         INPUT_LANG: ${{ inputs.lang }}
         INPUT_MODEL_PATH: ${{ inputs.model_path }}
         INPUT_MODEL_URL: ${{ inputs.model_url }}
@@ -61,28 +89,9 @@ runs:
       run: |
         chmod +x "$GITHUB_ACTION_PATH/entrypoint.sh"
         "$GITHUB_ACTION_PATH/entrypoint.sh"
-
-    - name: Verify token scopes (required for commit)
-      if: ${{ inputs.commit == 'true' }}
-      env:
-        GITHUB_TOKEN: ${{ secrets[ inputs.token_name ] }}
-      run: |
-        set -e
-        echo "[action] Verifying token scopes via GitHub API"
-        headers=$(curl -sI -H "Authorization: token ${GITHUB_TOKEN}" https://api.github.com/user || true)
-        echo "$headers"
-        scopes=$(echo "$headers" | tr -d '\r' | awk -F': ' '/^X-OAuth-Scopes/ {print tolower($2)}' || true)
-        if [ -z "$scopes" ]; then
-          echo "Could not determine token scopes. Ensure the secret is valid." >&2
-          exit 1
-        fi
-        echo "Token scopes: $scopes"
-        echo "$scopes" | grep -q "repo" || { echo "Token missing 'repo' scope (or equivalent). Aborting." >&2; exit 1; }
-
     - name: Commit & push changes
       if: ${{ inputs.commit == 'true' }}
-      env:
-        GITHUB_TOKEN: ${{ secrets[ inputs.token_name ] }}
+      # `GITHUB_TOKEN` is provided via $GITHUB_ENV by the Resolve token step
       run: |
         set -e
         git config user.name "readme-translator[bot]"
