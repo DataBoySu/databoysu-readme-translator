@@ -3,12 +3,14 @@
 DataBoySu's Readme Translator is a composite GitHub Action that translates a repository README and appends/updates a language navigation bar at the top of the README.
 
 Features
+
 - Translate README into a target language using a local GGUF model (via `llama-cpp-python`).
 - Inject or update a navbar section delimited by `<!--START_SECTION:navbar-->` / `<!--END_SECTION:navbar-->`.
 - Optional model download into the runner cache (`RUNNER_TOOL_CACHE`) when `model_url` is provided.
 - Dry-run mode writes a preview file instead of modifying the README.
 
 Quick start (example workflow)
+
 1. Add this action to a workflow in your repository (example):
 
 ```yaml
@@ -30,7 +32,6 @@ Local testing
 
 ```bash
 python -m pip install -r readme-translator-action/requirements.txt
-python -m pip install -r readme-translator-action/requirements-dev.txt
 ```
 
 2. Dry-run translation on your README (doesn't modify README):
@@ -42,15 +43,17 @@ python readme-translator-action/translator/translate.py --lang de --model-path /
 Running tests (pytest)
 
 ```bash
-pip install -r readme-translator-action/requirements-dev.txt
+pip install -r readme-translator-action/requirements.txt
 pytest -q
 ```
 
 Notes & caveats
-- This is a first release; it uses `llama-cpp-python` and expects a GGUF model compatible with the runtime. Running the model on GitHub-hosted runners may be slow and storage-heavy. For more control over native dependencies consider packaging as a Docker action.
+
+- This is a first release; it uses `llama-cpp-python` and expects a GGUF model compatible with the runtime. Running the model on GitHub-hosted runners may be slow and storage-heavy.
+
 - The translator will create `locales/README.<lang>.md` in the action folder when run. The navbar links point to `locales/README.<lang>.md` relative to the README location.
 
 Support & contribution
-- License: MIT
+- License: [AGPL-3.0](LICENSE)
 - Author: DataBoySu
 

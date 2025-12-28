@@ -213,7 +213,23 @@ def main(lang, model_path='', nav_target='README.md', dry_run=False):
         f.write(full_text)
 
     # Inject navbar into repository README (top)
-    locales = [lang]
+    # Discover all locale files under the locales folder and collect language codes
+    locales_dir = os.path.join(BASE_DIR, 'locales')
+    discovered = []
+    if os.path.isdir(locales_dir):
+        for fname in os.listdir(locales_dir):
+            m = re.match(r'README\.(.+?)\.md$', fname)
+            if m:
+                discovered.append(m.group(1))
+
+    # Ensure current language is present
+    if lang not in discovered:
+        discovered.append(lang)
+
+    # sort for deterministic order, but keep existing order if present
+    # we'll sort to keep behavior predictable
+    locales = sorted(discovered)
+
     with open(readme_path, 'r', encoding='utf-8') as f:
         original = f.read()
 

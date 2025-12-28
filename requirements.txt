@@ -1,2 +1,3 @@
 llama-cpp-python>=0.1.68
 regex
+pytest
