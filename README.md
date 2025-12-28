@@ -19,21 +19,7 @@ with:
   nav_target: README.md
 ```
 
-What repo owners must provide
-- `GITHUB_TOKEN`: action uses the runner provided `${{ secrets.GITHUB_TOKEN }}`. The workflow must grant `contents: write` permission if you want the action to update the README (committing changes).
-- Model download: the action automatically downloads the Aya Expanse GGUF model into the runner cache if none is present. No model inputs are required from repository owners. You can host a different model and update `entrypoint.sh`'s `DEFAULT_MODEL_URL` if desired.
-- `lang` input: target language code (e.g., `de`, `fr`).
-
-Committing changes from the Action
-
-- The workflow must grant `contents: write` permission so the action can commit and push README updates. Add this at the top level of your workflow:
-
-```yaml
-permissions:
-	contents: write
-```
-
-The action will automatically download the Aya model (see above) and commits README updates back to the repository by default. Ensure your workflow grants `contents: write` permission so the action can push changes.
+ The action will automatically download the Aya model (see above) and commits README updates back to the repository by default. The action verifies token scopes at runtime and will fail if the provided token does not include the required `repo`/`public_repo` scope. Ensure your workflow grants `permissions: contents: write`.
 
 Example workflow (commits by default):
 
