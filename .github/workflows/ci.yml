@@ -33,5 +33,11 @@ jobs:
             echo "Error: Translation file not generated."
             exit 1
           fi
-          echo "Translation content:"
-          cat locales/README.fr.md
+          
+          # Check if Navbar was injected into the source README
+          if ! grep -q "<!--START_SECTION:navbar-->" TEST_README.md; then
+            echo "Error: Navbar not injected into TEST_README.md"
+            exit 1
+          fi
+          
+          echo "Translation and Navbar verification passed."

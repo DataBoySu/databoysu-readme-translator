@@ -1,12 +1,29 @@
-# DataBoySu Readme Translator
+# DataBoySu's Readme Translator
 
-DataBoySu's Readme Translator is a composite GitHub Action that translates a repository README and appends/updates a language navigation bar at the top of the README. This action runs entirely on the GitHub Runner, ensuring your data stays within the execution environment.
+This Readme Translator is a composite GitHub Action that translates a repository README and appends/updates a language navigation bar at the top of the README.
+
+This action runs entirely on the GitHub Runner, ensuring your data stays within the execution environment.
 
 ## Features
 
 - Translate README into a target language using a local GGUF model (via `llama-cpp-python`).
 - Inject or update a navbar section delimited by `<!--START_SECTION:navbar-->` / `<!--END_SECTION:navbar-->`.
 -- Automatic download of the Aya Expanse GGUF model into the runner cache when missing.
+
+## Supported Languages
+
+You can use any of the following codes in the `lang` input.
+
+| Code | Language | | Code | Language | | Code | Language |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **fr** | French | | **de** | German | | **es** | Spanish |
+| **ja** | Japanese | | **zh** | Chinese (Simplified) | | **ru** | Russian |
+| **pt** | Portuguese | | **ko** | Korean | | **hi** | Hindi |
+| **it** | Italian | | **nl** | Dutch | | **tr** | Turkish |
+| **ar** | Arabic | | **vi** | Vietnamese | | **pl** | Polish |
+| **uk** | Ukrainian | | **id** | Indonesian | | **cs** | Czech |
+| **el** | Greek | | **he** | Hebrew | | **fa** | Persian |
+| **ro** | Romanian | | **zh-tw**| Chinese (Traditional)| | | |
 
 ## Quick start (Drag & Drop)
 
@@ -34,6 +51,8 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          # Use GH_TOKEN (PAT) if available to trigger other workflows, otherwise fallback to default GITHUB_TOKEN
+          token: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}
 
       - name: Run README Translator
         uses: DataBoySu/databoysu-readme-translator@main
@@ -72,8 +91,8 @@ The action automatically manages links between your translated files.
 
 By default, this workflow uses the automatic `GITHUB_TOKEN` to push changes back to your repository.
 
-- **Permissions**: You must include `permissions: contents: write` in your workflow file (as shown above).
-- **Custom Token**: If you need the translation commit to trigger *other* workflows (e.g., a GitHub Pages build), you must use a Personal Access Token (PAT) instead of the default `GITHUB_TOKEN`. Configure it in the `actions/checkout` step and the `git-auto-commit-action`.
+- **Permissions**: You must include `permissions: contents: write` in your workflow file.
+- **Triggering Workflows**: The default `GITHUB_TOKEN` **cannot** trigger other workflows (like a GitHub Pages build). If you need this, create a Personal Access Token (PAT), add it as a secret named `GH_TOKEN`, and the workflow above will automatically use it.
 
 ## License
 
