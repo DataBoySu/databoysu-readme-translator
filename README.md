@@ -21,6 +21,22 @@ with:
 
  The action will automatically download the Aya model (see above) and commits README updates back to the repository by default. The action verifies token scopes at runtime and will fail if the provided token does not include the required `repo`/`public_repo` scope. Ensure your workflow grants `permissions: contents: write`.
 
+Token configuration
+
+- **Default secret name:** The action accepts an input `token_name` which is the name of the secret that contains a write-capable GitHub token. By default this is set to `GH_TOKEN` so you can provide a secret named `GH_TOKEN` (or use the built-in `GITHUB_TOKEN` by setting `token_name: 'GITHUB_TOKEN'`).
+- **Custom secret:** If you store your token under a different secret name (for example `MY_WRITE_TOKEN`), set the input `token_name` to that name. The action will map `secrets[inputs.token_name]` to the internal `GITHUB_TOKEN` environment variable used by the script.
+
+Example (use a custom secret named `MY_WRITE_TOKEN` stored in repository secrets):
+
+```yaml
+      - name: Translate README
+        uses: DataBoySu/databoysu-readme-translator@v1
+        with:
+          lang: de
+          nav_target: README.md
+          token_name: MY_WRITE_TOKEN
+```
+
 Example workflow (commits by default):
 
 ```yaml

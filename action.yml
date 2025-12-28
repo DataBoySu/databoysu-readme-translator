@@ -10,10 +10,18 @@ inputs:
     description: 'Target language code (e.g., de, fr). Use "all" to run all locales.'
     required: false
     default: 'de'
+  token_name:
+    description: 'Name of the secret that contains the GitHub token (defaults to GH_TOKEN).'
+    required: false
+    default: 'GH_TOKEN'
   nav_target:
     description: 'README file to update (path relative to repo root).'
     required: false
     default: 'README.md'
+  dry_run:
+    description: 'If true, do not commit changes; just write outputs to workspace.'
+    required: false
+    default: 'false'
 
 runs:
   using: composite
@@ -33,10 +41,10 @@ runs:
 
     - name: Verify token scopes (requires write permission)
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_TOKEN: ${{ secrets[ inputs.token_name ] }}
       run: |
         if [ -z "${GITHUB_TOKEN:-}" ]; then
-          echo "GITHUB_TOKEN is not set. Your workflow must provide secrets.GITHUB_TOKEN with write permission.";
+          echo "Secret 'secrets.${{ inputs.token_name }}' is not set. Your workflow must provide that secret with write permission.";
           exit 1;
         fi
         echo "Checking token scopes via GitHub API headers..."
@@ -51,9 +59,12 @@ runs:
 
     - name: Run translator (entrypoint)
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_TOKEN: ${{ secrets[ inputs.token_name ] }}
         INPUT_LANG: ${{ inputs.lang }}
+        INPUT_MODEL_PATH: ${{ inputs.model_path }}
+        INPUT_MODEL_URL: ${{ inputs.model_url }}
         INPUT_NAV_TARGET: ${{ inputs.nav_target }}
+        INPUT_DRY_RUN: ${{ inputs.dry_run }}
       run: |
         chmod +x "$GITHUB_ACTION_PATH/entrypoint.sh"
         "$GITHUB_ACTION_PATH/entrypoint.sh"
@@ -285,11 +296,11 @@ runs:
     - name: Commit & push changes
       if: ${{ inputs.commit == 'true' && inputs.dry_run != 'true' }}
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_TOKEN: ${{ secrets[ inputs.token_name ] }}
       run: |
         set -e
-        git config user.name "github-actions[bot]"
-        git config user.email "github-actions[bot]@users.noreply.github.com"
+        git config user.name "readme-translator[bot]"
+        git config user.email "readme-translator[bot]@users.noreply.github.com"
         git add "${{ inputs.nav_target }}" || true
         git add locales || true
         # Use token-authenticated remote so push succeeds
