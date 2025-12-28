@@ -1,0 +1,40 @@
+# Ignore Python bytecode, caches and virtual environments
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Pytest and coverage
+.pytest_cache/
+.coverage
+.coverage.*
+
+# Caches and temporary files
+.cache/
+*.tmp
+*.log
+
+# Models and generated outputs
+models/
+models/*.gguf
+locales/
+readme_translator_preview.md
+
+# Runner/tool cache
+RUNNER_TOOL_CACHE/
+
+# Editor/config
+.vscode/
+.idea/
+*.swo
+*.swp
+*.bak
+
+# OS files
+.DS_Store
+Thumbs.db
