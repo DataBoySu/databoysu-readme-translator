@@ -27,12 +27,18 @@ You can use any of the following codes in the `lang` input.
 
 ## Quick start (Drag & Drop)
 
-To translate your README into the **9 default languages** (French, German, Spanish, Japanese, Chinese, Russian, Portuguese, Korean, Hindi), create a file named `.github/workflows/translate.yml` in your repository and paste the following:
+To translate your README into the **9 default languages** automatically on push, or **manually specify languages** via the Actions tab, create a file named `.github/workflows/translate.yml` in your repository and paste the following:
 
 ```yaml
 name: Translate Readme
 
 on:
+  workflow_dispatch:
+    inputs:
+      languages:
+        description: 'Languages to translate (comma-separated)'
+        required: false
+        default: 'fr,de,es,ja,zh,ru,pt,ko,hi'
   push:
     paths:
       - 'README.md'
@@ -41,12 +47,27 @@ permissions:
   contents: write
 
 jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - id: set-matrix
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            LANGS="${{ github.event.inputs.languages }}"
+          else
+            LANGS="fr,de,es,ja,zh,ru,pt,ko,hi"
+          fi
+          # Create JSON array for matrix
+          echo "matrix=$(echo $LANGS | jq -R -c 'split(",")')" >> $GITHUB_OUTPUT
+
   translate:
+    needs: prepare
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        # The 9 default languages
-        lang: [fr, de, es, ja, zh, ru, pt, ko, hi]
+        lang: ${{ fromJson(needs.prepare.outputs.matrix) }}
     steps:
       - uses: actions/checkout@v4
         with:
