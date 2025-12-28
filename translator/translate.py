@@ -119,8 +119,8 @@ def _classify_text_as_struct_or_prose(text):
     if (
         t.startswith(('<div', '<details', '```')) or
         t.startswith('<!--') or t.endswith('-->') or
-        re.match(r'!\[.*?\]\(.*?\)', t) or
-        re.match(r'\[.*?\]\(.*?\)', t)
+        # Strict check: Chunk must be ONLY images/links (no prose text)
+        re.fullmatch(r'(?:\s*(?:!\[.*?\]\(.*?\)|\[.*?\]\(.*?\))\s*)+', t, flags=re.DOTALL)
     ):
         return 'struct'
     return 'prose'
@@ -189,6 +189,7 @@ def get_smart_chunks(text):
               r'<details\b[^>]*>[\s\S]*?<\/details>|' \
               r'<section\b[^>]*>[\s\S]*?<\/section>|' \
               r'<table\b[^>]*>[\s\S]*?<\/table>|' \
+              r'^\s*(?:[!\[].*?\]\(.*?\)\s*)+$|' \
               r'^#{1,6} .*' \
               r')'
 
@@ -323,10 +324,16 @@ def get_system_prompts(target_lang_name):
         "STRICT RULES:\n"
         "- Output ONLY the final translated text. No intros.\n"
         "- NEVER modify HTML tags, attributes (href, src), or CSS styles.\n"
-        "- Keep technical terms (GPU, VRAM, CLI, Docker, GEMM, PIDs, NVLink) in English.\n"
+        "- Keep technical terms in English.\n"
         "- Preserve all Markdown symbols (#, **, `, -, link) exactly.\n"
+        "- Do NOT translate GitHub Flavored Markdown alerts (e.g., '> [!NOTE]', '> [!IMPORTANT]').\n"
+        "- Do NOT translate badge/shield alt text or URLs.\n"
         "- Do NOT modify formatting, whitespace, punctuation, code fences, list markers, "
-        "or emphasis markers; translate only the human-visible text."
+        "or emphasis markers; translate only the human-visible text.\n"
+        "- Markdown Admonitions: NEVER translate the keyword inside > [!KEYWORD]. Valid keywords are: NOTE, TIP, IMPORTANT, WARNING, CAUTION.\n"
+        "- Static Badges: Do not translate text inside image URLs (e.g., img.shields.io) unless it is the alt text.\n"
+        "- Emoji Integrity: Ensure emojis remain attached to their correct logical counterparts."
+
     )
     return header, prose
 
