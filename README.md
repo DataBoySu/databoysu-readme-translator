@@ -25,6 +25,8 @@ Token configuration
 
 - **Default secret name:** The action accepts an input `token_name` which is the name of the secret that contains a write-capable GitHub token. By default this is set to `GH_TOKEN` so you can provide a secret named `GH_TOKEN` (or use the built-in `GITHUB_TOKEN` by setting `token_name: 'GITHUB_TOKEN'`).
 - **Custom secret:** If you store your token under a different secret name (for example `MY_WRITE_TOKEN`), set the input `token_name` to that name. The action will map `secrets[inputs.token_name]` to the internal `GITHUB_TOKEN` environment variable used by the script.
+  
+Note: When `commit: true` the action performs a runtime scope check against the GitHub API and will fail if the provided token does not include the required `repo` (or equivalent write) scope.
 
 Example (use a custom secret named `MY_WRITE_TOKEN` stored in repository secrets):
 

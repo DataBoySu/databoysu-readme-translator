@@ -18,6 +18,10 @@ inputs:
     description: 'Optional URL to download GGUF model into the runner cache.'
     required: false
     default: ''
+  token_name:
+    description: 'Name of the secret that stores a write-capable GitHub token (e.g. GH_TOKEN).'
+    required: false
+    default: 'GH_TOKEN'
   nav_target:
     description: 'README file to update (path relative to repo root).'
     required: false
@@ -49,7 +53,7 @@ runs:
 
     - name: Run translator (entrypoint)
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_TOKEN: ${{ secrets[ inputs.token_name ] }}
         INPUT_LANG: ${{ inputs.lang }}
         INPUT_MODEL_PATH: ${{ inputs.model_path }}
         INPUT_MODEL_URL: ${{ inputs.model_url }}
@@ -57,6 +61,23 @@ runs:
       run: |
         chmod +x "$GITHUB_ACTION_PATH/entrypoint.sh"
         "$GITHUB_ACTION_PATH/entrypoint.sh"
+
+    - name: Verify token scopes (required for commit)
+      if: ${{ inputs.commit == 'true' }}
+      env:
+        GITHUB_TOKEN: ${{ secrets[ inputs.token_name ] }}
+      run: |
+        set -e
+        echo "[action] Verifying token scopes via GitHub API"
+        headers=$(curl -sI -H "Authorization: token ${GITHUB_TOKEN}" https://api.github.com/user || true)
+        echo "$headers"
+        scopes=$(echo "$headers" | tr -d '\r' | awk -F': ' '/^X-OAuth-Scopes/ {print tolower($2)}' || true)
+        if [ -z "$scopes" ]; then
+          echo "Could not determine token scopes. Ensure the secret is valid." >&2
+          exit 1
+        fi
+        echo "Token scopes: $scopes"
+        echo "$scopes" | grep -q "repo" || { echo "Token missing 'repo' scope (or equivalent). Aborting." >&2; exit 1; }
 
     - name: Commit & push changes
       if: ${{ inputs.commit == 'true' }}
