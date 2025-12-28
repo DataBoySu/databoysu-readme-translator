@@ -59,26 +59,13 @@ jobs:
           nav_target: README.md
 ```
 
-Local testing
-1. Install dependencies locally:
+Runner note
+
+If you're running the action within a workflow (the action files are checked out into `$GITHUB_ACTION_PATH`), install dependencies from the action path inside the runner:
 
 ```bash
-python -m pip install -r readme-translator-action/requirements.txt
-```
-
-2. Local translation (the action will download the Aya model automatically when run on a runner):
-
-```bash
-python -m readme_translator_action.translator.translate --lang de
-```
-
-Note: "dry run" previously referred to a mode that wrote a preview file (`readme_translator_preview.md`) instead of committing changes; in the marketplace action this behavior has been removed — the action always commits translated README updates back to the repository.
-
-Running tests (pytest)
-
-```bash
-pip install -r readme-translator-action/requirements.txt
-pytest -q
+# On the runner inside the action step
+python -m pip install -r "$GITHUB_ACTION_PATH/requirements.txt"
 ```
 
 Notes & caveats
@@ -88,6 +75,7 @@ Notes & caveats
 - The translator will create `locales/README.<lang>.md` in the action folder when run. The navbar links point to `locales/README.<lang>.md` relative to the README location.
 
 Support & contribution
+
 - License: [AGPL-3.0](LICENSE)
 - Author: DataBoySu
 

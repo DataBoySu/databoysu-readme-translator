@@ -1,7 +1,6 @@
 import os
 import re
 import argparse
-from llama_cpp import Llama
 
 # Minimal standalone copy of the pipeline; LLM initialization is performed in main()
 
@@ -152,14 +151,13 @@ def inject_navbar(readme_text, langs):
     return block + readme_text
 
 
-def main(lang, model_path='', nav_target='README.md', dry_run=False):
+def main(lang, model_path='', nav_target='README.md'):
     """Run translation for a single language.
 
     Parameters:
     - lang: language code
     - model_path: path to GGUF model file
     - nav_target: README path relative to repo root
-    - dry_run: if True, do not overwrite README (write preview)
     """
     target_lang_name = LANG_MAP.get(lang, "English")
 
@@ -234,15 +232,9 @@ def main(lang, model_path='', nav_target='README.md', dry_run=False):
 
     updated = inject_navbar(original, locales)
 
-    if dry_run:
-        out_preview = os.path.join(BASE_DIR, 'readme_translator_preview.md')
-        with open(out_preview, 'w', encoding='utf-8') as f:
-            f.write(updated)
-        print(f'[DRY RUN] Wrote preview to {out_preview}')
-    else:
-        with open(readme_path, 'w', encoding='utf-8') as f:
-            f.write(updated)
-        print(f'[SUCCESS] Wrote translated locales to {output_path} and injected navbar into {readme_path}')
+    with open(readme_path, 'w', encoding='utf-8') as f:
+        f.write(updated)
+    print(f'[SUCCESS] Wrote translated locales to {output_path} and injected navbar into {readme_path}')
 
 
 if __name__ == '__main__':
@@ -250,7 +242,6 @@ if __name__ == '__main__':
     parser.add_argument("--lang", type=str, required=True)
     parser.add_argument("--model-path", type=str, default="")
     parser.add_argument("--nav-target", type=str, default="README.md")
-    parser.add_argument("--dry-run", action='store_true')
     args = parser.parse_args()
 
-    main(args.lang, model_path=args.model_path, nav_target=args.nav_target, dry_run=args.dry_run)
+    main(args.lang, model_path=args.model_path, nav_target=args.nav_target)

@@ -171,7 +171,7 @@ def inject_navbar(readme_text: str, langs: List[str]) -> str:
     return block + readme_text
 
 
-def main(lang: str, model_path: str = '', nav_target: str = 'README.md', dry_run: bool = False):
+def main(lang: str, model_path: str = '', nav_target: str = 'README.md'):
     """Run translation for a single language.
 
     This function performs LLM initialization lazily and is safe to import in tests.
@@ -254,15 +254,9 @@ def main(lang: str, model_path: str = '', nav_target: str = 'README.md', dry_run
 
     updated = inject_navbar(original, locales)
 
-    if dry_run:
-        out_preview = os.path.join(BASE_DIR, 'readme_translator_preview.md')
-        with open(out_preview, 'w', encoding='utf-8') as f:
-            f.write(updated)
-        print(f'[DRY RUN] Wrote preview to {out_preview}')
-    else:
-        with open(readme_path, 'w', encoding='utf-8') as f:
-            f.write(updated)
-        print(f'[SUCCESS] Wrote translated locales to {output_path} and injected navbar into {readme_path}')
+    with open(readme_path, 'w', encoding='utf-8') as f:
+        f.write(updated)
+    print(f'[SUCCESS] Wrote translated locales to {output_path} and injected navbar into {readme_path}')
 
 
 if __name__ == '__main__':
@@ -270,7 +264,6 @@ if __name__ == '__main__':
     parser.add_argument("--lang", type=str, required=True)
     parser.add_argument("--model-path", type=str, default="")
     parser.add_argument("--nav-target", type=str, default="README.md")
-    parser.add_argument("--dry-run", action='store_true')
     args = parser.parse_args()
 
-    main(args.lang, model_path=args.model_path, nav_target=args.nav_target, dry_run=args.dry_run)
+    main(args.lang, model_path=args.model_path, nav_target=args.nav_target)

@@ -9,8 +9,7 @@ venv/
 env/
 ENV/
 
-# Pytest and coverage
-.pytest_cache/
+# Coverage
 .coverage
 .coverage.*
 
@@ -23,7 +22,6 @@ ENV/
 models/
 models/*.gguf
 locales/
-readme_translator_preview.md
 
 # Runner/tool cache
 RUNNER_TOOL_CACHE/
