@@ -45,7 +45,7 @@ You can use any of the following codes in the `lang` input.
 
 ## Quick start (Drag & Drop)
 
-To translate your README into the **4 default languages** automatically on push, or **manually specify languages** via the Actions tab, create a file named `.github/workflows/translate.yml` in your repository and paste the following:
+To translate your README into the **9 default languages** automatically on push, or **manually specify languages** via the Actions tab, create a file named `.github/workflows/translate.yml` in your repository and paste the following:
 
 ```yaml
 name: Translate Readme
@@ -56,7 +56,7 @@ on:
       languages:
         description: 'Languages to translate (comma-separated)'
         required: false
-        default: 'fr,de,es,ru'
+        default: 'fr,de,es,ja,zh,ru,pt,ko,hi'
   push:
     paths:
       - 'README.md'
@@ -90,7 +90,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Run README Translator
-      # @main is you want latest code, @v1 for stable yet outdated first release
+      # Use @v1 for the stable version, or @main for the bleeding edge
         uses: DataBoySu/databoysu-readme-translator@v1
         with:
           lang: ${{ matrix.lang }}
