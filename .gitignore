@@ -36,3 +36,5 @@ RUNNER_TOOL_CACHE/
 # OS files
 .DS_Store
 Thumbs.db
+
+"tests/"
