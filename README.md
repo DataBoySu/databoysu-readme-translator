@@ -51,7 +51,7 @@ on:
       languages:
         description: 'Languages to translate (comma-separated)'
         required: false
-        default: 'fr,de,es,ja,zh,ru,pt,ko,hi'
+        default: 'fr,de,es,ru'
   push:
     paths:
       - 'README.md'
