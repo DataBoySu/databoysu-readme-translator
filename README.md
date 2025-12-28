@@ -1,5 +1,10 @@
 # DataBoySu's Readme Translator
 
+![GitHub Release](https://img.shields.io/github/v/release/DataBoySu/databoysu-readme-translator?style=for-the-badge&color=0366d6&logo=github)
+![Build Status](https://img.shields.io/github/actions/workflow/status/DataBoySu/databoysu-readme-translator/ci.yml?style=for-the-badge&label=Build&logo=github-actions)
+![Python Version](https://img.shields.io/badge/Python-3.10%2B-blue?style=for-the-badge&logo=python&logoColor=white)
+![License](https://img.shields.io/badge/License-AGPL_3.0-purple?style=for-the-badge)
+
 This Readme Translator is a composite GitHub Action that translates a repository README and appends/updates a language navigation bar at the top of the README.
 
 This action runs entirely on the GitHub Runner, ensuring your data stays within the execution environment.
@@ -120,20 +125,32 @@ jobs:
           import os, re
           readme_path = 'README.md'
           locales_dir = 'locales'
+          nav_data = {
+              "ar": ("🇸🇦", "العربية"), "cs": ("🇨🇿", "Čeština"), "de": ("🇩🇪", "Deutsch"),
+              "el": ("🇬🇷", "Ελληνικά"), "en": ("🇺🇸", "English"), "es": ("🇪🇸", "Español"),
+              "fa": ("🇮🇷", "فارسی"), "fr": ("🇫🇷", "Français"), "he": ("🇮🇱", "עברית"),
+              "hi": ("🇮🇳", "हिंदी"), "id": ("🇮🇩", "Bahasa Indonesia"), "it": ("🇮🇹", "Italiano"),
+              "ja": ("🇯🇵", "日本語"), "ko": ("🇰🇷", "한국어"), "nl": ("🇳🇱", "Nederlands"),
+              "pl": ("🇵🇱", "Polski"), "pt": ("🇵🇹", "Português"), "ro": ("🇷🇴", "Română"),
+              "ru": ("🇷🇺", "Русский"), "tr": ("🇹🇷", "Türkçe"), "uk": ("🇺🇦", "Українська"),
+              "vi": ("🇻🇳", "Tiếng Việt"), "zh": ("🇨🇳", "中文"), "zh-tw": ("🇹🇼", "繁體中文")
+          }
           if os.path.exists(locales_dir):
               langs = sorted([re.match(r'README\.(.+?)\.md$', f).group(1) for f in os.listdir(locales_dir) if re.match(r'README\.(.+?)\.md$', f)])
-              if langs:
-                  navbar = ' | '.join([f'[{l}](locales/README.{l}.md)' for l in langs])
-                  start, end = '<!--START_SECTION:navbar-->', '<!--END_SECTION:navbar-->'
-                  block = f'{start}\n{navbar}\n{end}\n\n'
-                  with open(readme_path, 'r', encoding='utf-8') as f: content = f.read()
-                  if start in content and end in content:
-                      before, rest = content.split(start, 1)
-                      _, after = rest.split(end, 1)
-                      content = before + block + after
-                  else:
-                      content = block + content
-                  with open(readme_path, 'w', encoding='utf-8') as f: f.write(content)
+              links = [f'<a href="README.md">🇺🇸 English</a>']
+              for l in langs:
+                  flag, name = nav_data.get(l, ("🏳️", l.upper()))
+                  links.append(f'<a href="locales/README.{l}.md">{flag} {name}</a>')
+              navbar = ' | '.join(links)
+              start, end = '<!--START_SECTION:navbar-->', '<!--END_SECTION:navbar-->'
+              block = f'{start}\n<div align="center">\n  {navbar}\n</div>\n{end}\n\n'
+              with open(readme_path, 'r', encoding='utf-8') as f: content = f.read()
+              pattern = re.compile(f'{re.escape(start)}.*?{re.escape(end)}\s*', re.DOTALL)
+              if pattern.search(content):
+                  content = pattern.sub(block, content)
+              else:
+                  content = block + content
+              with open(readme_path, 'w', encoding='utf-8') as f: f.write(content)
           "
 
       - name: Commit Translations
