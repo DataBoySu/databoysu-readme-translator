@@ -7,8 +7,21 @@ This action runs entirely on the GitHub Runner, ensuring your data stays within 
 ## Features
 
 - Translate README into a target language using a local GGUF model (via `llama-cpp-python`).
-- Inject or update a navbar section delimited by `<!--START_SECTION:navbar-->` / `<!--END_SECTION:navbar-->`.
--- Automatic download of the Aya Expanse GGUF model into the runner cache when missing.
+- Inject or update a navbar section delimited by
+
+```
+ <!--START_SECTION:navbar--> 
+ 
+ <!--END_SECTION:navbar-->
+```
+
+-- Automatic regeneration of the runner cache when missing.
+
+## Translation Quality & Disclaimer
+
+This action acts as a powerful **helper tool** designed to take your documentation **95% of the way** towards full localization. It utilizes a context-aware AI model optimized for technical content, ensuring that code blocks, HTML tags, and industry jargon are preserved.
+
+While the quality is high, **manual review is required for the final 5%**. You may encounter occasional grammatical imperfections or untranslated segments if the model encounters ambiguous context. The repository owner is responsible for the final polish and verification of the translated content.
 
 ## Supported Languages
 
@@ -134,9 +147,9 @@ jobs:
 
 The action automatically manages links between your translated files.
 
-1.  **Default**: If no navbar exists, one is **appended to the very top** of your `README.md`.
-2.  **Existing**: If a navbar exists, it updates the links based on the languages found in your `locales/` folder.
-3.  **Manual Placement**: If you want the navbar in a specific location (e.g., below a logo), add these markers to your `README.md`:
+1. **Default**: If no navbar exists, one is **appended to the very top** of your `README.md`.
+2. **Existing**: If a navbar exists, it updates the links based on the languages found in your `locales/` folder.
+3. **Manual Placement**: If you want the navbar in a specific location (e.g., below a logo), add these markers to your `README.md`:
 
     ```markdown
     <!--START_SECTION:navbar-->
