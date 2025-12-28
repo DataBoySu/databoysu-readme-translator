@@ -39,12 +39,14 @@ runs:
         python -m pip install --upgrade pip
         pip install -r readme-translator-action/requirements.txt
 
-    - name: Run translator
+    - name: Run translator (entrypoint)
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        INPUT_LANG: ${{ inputs.lang }}
+        INPUT_MODEL_PATH: ${{ inputs.model_path }}
+        INPUT_MODEL_URL: ${{ inputs.model_url }}
+        INPUT_NAV_TARGET: ${{ inputs.nav_target }}
+        INPUT_DRY_RUN: ${{ inputs.dry_run }}
       run: |
-        python readme-translator-action/translator/translate.py \
-          --lang "${{ inputs.lang }}" \
-          --model-path "${{ inputs.model_path }}" \
-          --nav-target "${{ inputs.nav_target }}" \
-          --dry-run "${{ inputs.dry_run }}"
+        chmod +x readme-translator-action/entrypoint.sh
+        ./readme-translator-action/entrypoint.sh

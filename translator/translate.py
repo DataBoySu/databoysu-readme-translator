@@ -16,27 +16,10 @@ LANG_MAP = {
     "uk": "Ukrainian", "vi": "Vietnamese", "zh-tw": "Chinese(Traditional)",
 }
 
-parser = argparse.ArgumentParser()
-parser.add_argument("--lang", type=str, required=True)
-parser.add_argument("--model-path", type=str, default="")
-parser.add_argument("--nav-target", type=str, default="README.md")
-parser.add_argument("--dry-run", action='store_true')
-args = parser.parse_args()
-
-target_lang_name = LANG_MAP.get(args.lang, "English")
-
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-README_PATH = os.path.join(BASE_DIR, args.nav_target)
-OUTPUT_DIR = os.path.join(BASE_DIR, "locales")
-OUTPUT_PATH = os.path.join(OUTPUT_DIR, f"README.{args.lang}.md")
 
-# Load language-specific guidance if present in scripts/ folder
-scripts_dir = os.path.join(BASE_DIR, "scripts")
-guidance_file = os.path.join(scripts_dir, f"{args.lang}.txt")
+# lang_guidance and path variables are set inside main() to keep module import-safe
 lang_guidance = ""
-if os.path.exists(guidance_file):
-    with open(guidance_file, "r", encoding="utf-8") as f:
-        lang_guidance = f.read().strip()
 
 # 2. Smart Chunking Functions
 
@@ -141,29 +124,66 @@ def translate_chunk(text, llm, is_lone_header=False):
 def inject_navbar(readme_text, langs):
     start_marker = '<!--START_SECTION:navbar-->'
     end_marker = '<!--END_SECTION:navbar-->'
-    links = []
-    for l in langs:
-        href = f'locales/README.{l}.md'
-        links.append(f'[{l}]({href})')
-    navbar = ' | '.join(links)
-    block = f"{start_marker}\n{navbar}\n{end_marker}\n\n"
 
+    def make_link(l):
+        href = f'locales/README.{l}.md'
+        return f'[{l}]({href})'
+
+    # If navbar exists, parse existing links and add any missing langs
     if start_marker in readme_text and end_marker in readme_text:
         before, rest = readme_text.split(start_marker, 1)
-        _, after = rest.split(end_marker, 1)
+        body, after = rest.split(end_marker, 1)
+
+        # extract existing codes from bracket links like [de](...)
+        existing = re.findall(r'\[([^\]]+)\]\([^\)]+\)', body)
+        # build ordered links preserving existing order and appending new ones
+        ordered = [make_link(x) for x in existing]
+        for l in langs:
+            if l not in existing:
+                ordered.append(make_link(l))
+
+        navbar = ' | '.join(ordered)
+        block = f"{start_marker}\n{navbar}\n{end_marker}\n\n"
         return before + block + after
-    else:
-        return block + readme_text
+
+    # If no navbar, create one and insert at top
+    new_links = [make_link(l) for l in langs]
+    navbar = ' | '.join(new_links)
+    block = f"{start_marker}\n{navbar}\n{end_marker}\n\n"
+    return block + readme_text
 
 
-def main():
+def main(lang, model_path='', nav_target='README.md', dry_run=False):
+    """Run translation for a single language.
+
+    Parameters:
+    - lang: language code
+    - model_path: path to GGUF model file
+    - nav_target: README path relative to repo root
+    - dry_run: if True, do not overwrite README (write preview)
+    """
+    target_lang_name = LANG_MAP.get(lang, "English")
+
+    # Load language-specific guidance if present in scripts/ folder
+    scripts_dir = os.path.join(BASE_DIR, "scripts")
+    guidance_file = os.path.join(scripts_dir, f"{lang}.txt")
+    global lang_guidance
+    lang_guidance = ""
+    if os.path.exists(guidance_file):
+        with open(guidance_file, "r", encoding="utf-8") as f:
+            lang_guidance = f.read().strip()
+
+    readme_path = os.path.join(BASE_DIR, nav_target)
+    output_dir = os.path.join(BASE_DIR, "locales")
+    output_path = os.path.join(output_dir, f"README.{lang}.md")
+
     # Initialize LLM here to avoid import-time side-effects
-    model_path = args.model_path or os.path.join(BASE_DIR, 'models', 'aya-expanse-8b-Q4_K_M.gguf')
-    llm = Llama(model_path=model_path, n_ctx=8192, n_threads=2, verbose=False)
+    mp = model_path or os.path.join(BASE_DIR, 'models', 'aya-expanse-8b-Q4_K_M.gguf')
+    llm = Llama(model_path=mp, n_ctx=8192, n_threads=2, verbose=False)
 
-    os.makedirs(OUTPUT_DIR, exist_ok=True)
+    os.makedirs(output_dir, exist_ok=True)
 
-    with open(README_PATH, 'r', encoding='utf-8') as f:
+    with open(readme_path, 'r', encoding='utf-8') as f:
         content = f.read()
 
     chunks = merge_small_chunks(get_smart_chunks(content))
@@ -189,26 +209,33 @@ def main():
     full_text = re.sub(r'(\[.*?\]\()(?!(?:http|/|#|\.\./))', r'\1../', full_text)
     full_text = re.sub(r'((?:src|href)=["\'])(?!(?:http|/|#|\.\./))', r'\1../', full_text)
 
-    with open(OUTPUT_PATH, 'w', encoding='utf-8') as f:
+    with open(output_path, 'w', encoding='utf-8') as f:
         f.write(full_text)
 
     # Inject navbar into repository README (top)
-    locales = [args.lang]
-    with open(README_PATH, 'r', encoding='utf-8') as f:
+    locales = [lang]
+    with open(readme_path, 'r', encoding='utf-8') as f:
         original = f.read()
 
     updated = inject_navbar(original, locales)
 
-    if args.dry_run:
+    if dry_run:
         out_preview = os.path.join(BASE_DIR, 'readme_translator_preview.md')
         with open(out_preview, 'w', encoding='utf-8') as f:
             f.write(updated)
         print(f'[DRY RUN] Wrote preview to {out_preview}')
     else:
-        with open(README_PATH, 'w', encoding='utf-8') as f:
+        with open(readme_path, 'w', encoding='utf-8') as f:
             f.write(updated)
-        print(f'[SUCCESS] Wrote translated locales to {OUTPUT_PATH} and injected navbar into {README_PATH}')
+        print(f'[SUCCESS] Wrote translated locales to {output_path} and injected navbar into {readme_path}')
 
 
 if __name__ == '__main__':
-    main()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--lang", type=str, required=True)
+    parser.add_argument("--model-path", type=str, default="")
+    parser.add_argument("--nav-target", type=str, default="README.md")
+    parser.add_argument("--dry-run", action='store_true')
+    args = parser.parse_args()
+
+    main(args.lang, model_path=args.model_path, nav_target=args.nav_target, dry_run=args.dry_run)
