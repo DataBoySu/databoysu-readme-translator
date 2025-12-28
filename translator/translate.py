@@ -253,7 +253,12 @@ def translate_chunk(text, llm, prompts, lang_guidance=None, is_lone_header=False
         "<|START_OF_TURN_TOKEN|><|CHATBOT_TOKEN|>"
     )
 
-    response = llm(prompt, max_tokens=8192, temperature=0, stop=["<|END_OF_TURN_TOKEN|>"])
+    # Dynamic max_tokens to prevent infinite loops on small inputs
+    # Estimate: 3 tokens per char upper bound, min 256, max 4096
+    estimated_limit = int(len(text) * 3) + 200
+    gen_limit = min(4096, max(256, estimated_limit))
+
+    response = llm(prompt, max_tokens=gen_limit, temperature=0, stop=["<|END_OF_TURN_TOKEN|>"])
     translated = response['choices'][0]['text'].strip()
 
     if translated.startswith("```"):
@@ -341,18 +346,22 @@ def process_chunks(chunks, llm, lang, prompts, lang_guidance):
     final_output = []
     multiplier = HIGH_MULTIPLIER_MAP.get(lang, 2.5)
 
+    total_chunks = len(chunks)
+    print(f"[INFO] Processing {total_chunks} chunks for language '{lang}'...", flush=True)
+
     for i, (ctype, ctext) in enumerate(chunks):
         if ctype == 'struct':
             final_output.append(ctext + '\n\n')
             continue
 
+        print(f"[INFO] Translating chunk {i+1}/{total_chunks} ({len(ctext)} chars)...", flush=True)
         is_lone_header = ctext.strip().startswith('#') and '\n' not in ctext.strip()
         translated = translate_chunk(
             ctext, llm, prompts, lang_guidance, is_lone_header
         )
 
         if len(translated) > multiplier * len(ctext) or any(f in translated for f in FORBIDDEN):
-            print(f"[WARN] Chunk {i+1} failed validation, using original text")
+            print(f"[WARN] Chunk {i+1} failed validation, using original text", flush=True)
             translated = ctext
 
         final_output.append(translated.rstrip() + '\n\n')
@@ -382,9 +391,12 @@ def regenerate_all_navbars(readme_path, locales_dir):
         return
 
     # Discover languages
-    langs = sorted([re.match(r'README\.(.+?)\.md$', f).group(1) 
-                   for f in os.listdir(locales_dir) 
-                   if re.match(r'README\.(.+?)\.md$', f)])
+    langs = []
+    for f in os.listdir(locales_dir):
+        match = re.match(r'README\.(.+?)\.md$', f)
+        if match and match.group(1) in NAV_DATA:
+            langs.append(match.group(1))
+    langs.sort()
     
     # Helper to generate HTML
     def get_nav_html(is_root):

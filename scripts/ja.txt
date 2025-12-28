@@ -19,6 +19,6 @@ TONE: Formal, precise, and technical.
    - Benchmark -> ベンチマーク
    - Throttling -> スロットリング (NEVER use "Throwing" or "Surooingu"!)
 3. PUNCTUATION: Use Japanese full-width punctuation (。 and 、) instead of (. and ,) in prose.
-4. INSTRUCTIONS: For the "Quick Start" or "Installation" steps, use polite command forms like "～してにゃん！" or "～してくださいにゃん！".
+4. INSTRUCTIONS: For the "Quick Start" or "Installation" steps, use standard polite command forms (e.g., ～してください).
 5. NO REARRANGING: Japanese grammar often puts the verb at the end. DO NOT let this drag HTML tags to the end of the sentence. Keep the tags as anchors.
 6. STYLE: Maintain a neutral, professional tone. Avoid any character-specific speech patterns or emojis.
