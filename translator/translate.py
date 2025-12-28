@@ -1,3 +1,7 @@
+"""
+Translation module for the README translator action.
+Handles chunking, translation via LLM, and navbar injection.
+"""
 import os
 import re
 import argparse
@@ -81,14 +85,10 @@ HIGH_MULTIPLIER_MAP = {
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-# lang_guidance and path variables are set inside main() to keep module import-safe
-lang_guidance = ""
-SYSTEM_HEADER = ""
-SYSTEM_PROSE = ""
-
 # 2. Smart Chunking Functions
 
 def _classify_text_as_struct_or_prose(text):
+    """Classify text chunk as structure (HTML/comments) or prose."""
     t = text.strip()
     if (
         t.startswith(('<div', '<details', '```')) or
@@ -156,6 +156,7 @@ def split_struct_blockquotes(chunks):
     return out
 
 def get_smart_chunks(text):
+    """Split text into smart chunks based on markdown/html patterns."""
     pattern = r'(' \
               r'```[\s\S]*?```|' \
               r'<div\b[^>]*>[\s\S]*?<\/div>|' \
@@ -192,13 +193,14 @@ def get_smart_chunks(text):
     return chunks
 
 
-def merge_small_chunks(chunks, min_chars=400):
+def merge_small_chunks(chunks, min_chars=50):
+    """Merge small prose chunks to prevent fragmentation."""
     merged = []
     i = 0
     while i < len(chunks):
         ctype, ctext = chunks[i]
         
-        if ctype == "prose" and (ctext.startswith('#') or len(ctext) < 50) and i + 1 < len(chunks):
+        if ctype == "prose" and (ctext.startswith('#') or len(ctext) < min_chars) and i + 1 < len(chunks):
             next_ctype, next_ctext = chunks[i+1]
             combined_text = ctext + "\n\n" + next_ctext
             new_type = "hybrid" if next_ctype == "struct" else "prose"
@@ -211,12 +213,17 @@ def merge_small_chunks(chunks, min_chars=400):
 
 
 # 3. Prompts (minimal)
-def translate_chunk(text, llm, is_lone_header=False):
-    current_system_prompt = SYSTEM_HEADER if is_lone_header else SYSTEM_PROSE
+def translate_chunk(text, llm, system_header, system_prose, lang_guidance=None, is_lone_header=False):
+    """Translate a single chunk using llama-cpp-python."""
+    current_system_prompt = system_header if is_lone_header else system_prose
     if lang_guidance and not is_lone_header:
-        current_system_prompt = f"{SYSTEM_PROSE}\n\nADDITIONAL GUIDANCE:\n{lang_guidance}"
+        current_system_prompt = f"{system_prose}\n\nADDITIONAL GUIDANCE:\n{lang_guidance}"
 
-    prompt = f"""<|START_OF_TURN_TOKEN|><|SYSTEM_TOKEN|>\n{current_system_prompt}\n<|END_OF_TURN_TOKEN|>\n<|START_OF_TURN_TOKEN|><|USER_TOKEN|>\n{text}<|END_OF_TURN_TOKEN|>\n<|START_OF_TURN_TOKEN|><|CHATBOT_TOKEN|>"""
+    prompt = (
+        f"<|START_OF_TURN_TOKEN|><|SYSTEM_TOKEN|>\n{current_system_prompt}\n<|END_OF_TURN_TOKEN|>\n"
+        f"<|START_OF_TURN_TOKEN|><|USER_TOKEN|>\n{text}<|END_OF_TURN_TOKEN|>\n"
+        "<|START_OF_TURN_TOKEN|><|CHATBOT_TOKEN|>"
+    )
 
     response = llm(prompt, max_tokens=8192, temperature=0, stop=["<|END_OF_TURN_TOKEN|>"])
     translated = response['choices'][0]['text'].strip()
@@ -233,6 +240,7 @@ def translate_chunk(text, llm, is_lone_header=False):
 
 
 def inject_navbar(readme_text, langs):
+    """Inject or update the navigation bar in the README."""
     start_marker = '<!--START_SECTION:navbar-->'
     end_marker = '<!--END_SECTION:navbar-->'
 
@@ -264,6 +272,67 @@ def inject_navbar(readme_text, langs):
     return block + readme_text
 
 
+def get_system_prompts(target_lang_name):
+    """Generate system prompts for the target language."""
+    header = (
+        f"You are a technical translation filter for {target_lang_name}.\n"
+        "STRICT RULES:\n"
+        "- The input is a single section header. Translate it 1:1.\n"
+        "- DO NOT generate any content, lists, or descriptions under the header.\n"
+        "- Preserve the '#' symbols exactly.\n"
+        "- Output ONLY the translated header.\n"
+        "- Preserve original formatting, punctuation, whitespace, and markdown/code symbols exactly; "
+        "do NOT normalize, reflow, or 'fix' the input."
+    )
+
+    prose = (
+        f"You are a professional technical translation engine. "
+        f"Your task: Translate the input into {target_lang_name}.\n"
+        "STRICT RULES:\n"
+        "- Output ONLY the final translated text. No intros.\n"
+        "- NEVER modify HTML tags, attributes (href, src), or CSS styles.\n"
+        "- Keep technical terms (GPU, VRAM, CLI, Docker, GEMM, PIDs, NVLink) in English.\n"
+        "- Preserve all Markdown symbols (#, **, `, -, link) exactly.\n"
+        "- Do NOT modify formatting, whitespace, punctuation, code fences, list markers, "
+        "or emphasis markers; translate only the human-visible text."
+    )
+    return header, prose
+
+
+def load_guidance(lang):
+    """Load language-specific guidance from scripts directory."""
+    scripts_dir = os.path.join(BASE_DIR, "scripts")
+    guidance_file = os.path.join(scripts_dir, f"{lang}.txt")
+    if os.path.exists(guidance_file):
+        with open(guidance_file, "r", encoding="utf-8") as f:
+            return f.read().strip()
+    return ""
+
+
+def process_chunks(chunks, llm, lang, system_header, system_prose, lang_guidance):
+    """Translate chunks and return joined text."""
+    final_output = []
+    multiplier = HIGH_MULTIPLIER_MAP.get(lang, 2.5)
+
+    for i, (ctype, ctext) in enumerate(chunks):
+        if ctype == 'struct':
+            final_output.append(ctext + '\n\n')
+            continue
+
+        is_lone_header = ctext.strip().startswith('#') and '\n' not in ctext.strip()
+        translated = translate_chunk(
+            ctext, llm, system_header, system_prose, lang_guidance, is_lone_header
+        )
+
+        if len(translated) > multiplier * len(ctext) or any(f in translated for f in FORBIDDEN):
+            print(f"[WARN] Chunk {i+1} failed validation, using original text")
+            translated = ctext
+
+        final_output.append(translated.rstrip() + '\n\n')
+
+    return ''.join(final_output)
+
+
 def main(lang, model_path='', nav_target='README.md'):
     """Run translation for a single language.
 
@@ -274,35 +343,8 @@ def main(lang, model_path='', nav_target='README.md'):
     """
     target_lang_name = LANG_MAP.get(lang, "English")
 
-    global SYSTEM_HEADER, SYSTEM_PROSE
-    SYSTEM_HEADER = (
-        f"You are a technical translation filter for {target_lang_name}.\n"
-        "STRICT RULES:\n"
-        "- The input is a single section header. Translate it 1:1.\n"
-        "- DO NOT generate any content, lists, or descriptions under the header.\n"
-        "- Preserve the '#' symbols exactly.\n"
-        "- Output ONLY the translated header.\n"
-        "- Preserve original formatting, punctuation, whitespace, and markdown/code symbols exactly; do NOT normalize, reflow, or 'fix' the input."
-    )
-
-    SYSTEM_PROSE = (
-        f"You are a professional technical translation engine. Your task: Translate the input into {target_lang_name}.\n"
-        "STRICT RULES:\n"
-        "- Output ONLY the final translated text. No intros.\n"
-        "- NEVER modify HTML tags, attributes (href, src), or CSS styles.\n"
-        "- Keep technical terms (GPU, VRAM, CLI, Docker, GEMM, PIDs, NVLink) in English.\n"
-        "- Preserve all Markdown symbols (#, **, `, -, link) exactly.\n"
-        "- Do NOT modify formatting, whitespace, punctuation, code fences, list markers, or emphasis markers; translate only the human-visible text."
-    )
-
-    # Load language-specific guidance if present in scripts/ folder
-    scripts_dir = os.path.join(BASE_DIR, "scripts")
-    guidance_file = os.path.join(scripts_dir, f"{lang}.txt")
-    global lang_guidance
-    lang_guidance = ""
-    if os.path.exists(guidance_file):
-        with open(guidance_file, "r", encoding="utf-8") as f:
-            lang_guidance = f.read().strip()
+    system_header, system_prose = get_system_prompts(target_lang_name)
+    lang_guidance = load_guidance(lang)
 
     # Use current working directory for target repo files
     readme_path = os.path.abspath(nav_target)
@@ -322,24 +364,7 @@ def main(lang, model_path='', nav_target='README.md'):
     chunks = split_struct_blockquotes(chunks)
     chunks = merge_small_chunks(chunks)
 
-    final_output = []
-    multiplier = HIGH_MULTIPLIER_MAP.get(lang, 2.5)
-
-    for i, (ctype, ctext) in enumerate(chunks):
-        if ctype == 'struct':
-            final_output.append(ctext + '\n\n')
-            continue
-
-        is_lone_header = ctext.strip().startswith('#') and '\n' not in ctext.strip()
-        translated = translate_chunk(ctext, llm, is_lone_header)
-
-        if len(translated) > multiplier * len(ctext) or any(f in translated for f in FORBIDDEN):
-            print(f"[WARN] Chunk {i+1} failed validation, using original text")
-            translated = ctext
-
-        final_output.append(translated.rstrip() + '\n\n')
-
-    full_text = ''.join(final_output)
+    full_text = process_chunks(chunks, llm, lang, system_header, system_prose, lang_guidance)
 
     full_text = re.sub(r'(\[.*?\]\()(?!(?:http|/|#|\.\./))', r'\1../', full_text)
     full_text = re.sub(r'((?:src|href)=["\'])(?!(?:http|/|#|\.\./))', r'\1../', full_text)
