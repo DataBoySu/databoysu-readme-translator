@@ -95,7 +95,7 @@ jobs:
         with:
           lang: ${{ matrix.lang }}
 
-      - name: Upload Translation
+      - name: Uploading Translation Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: locale-${{ matrix.lang }}
@@ -153,10 +153,12 @@ jobs:
               with open(readme_path, 'w', encoding='utf-8') as f: f.write(content)
           "
 
-      - name: Commit Translations
+      - name: Saving Changes
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
-          commit_message: "docs: update translations and navbar"
+          commit_message: "✨💖 docs: updated translations & navbar! 🌸✨"
+          # To use your own avatar, uncomment and set your name/email:
+          # commit_author: "Your Name <your-email@example.com>"
           file_pattern: 'README.md locales/*.md'
 ```
 
