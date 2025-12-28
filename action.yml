@@ -1,108 +1,47 @@
 name: 'DataBoySu Readme Translator'
-description: 'Composite GitHub Action to translate README files and append a language navbar.'
+description: 'Automatically translates your README.md into multiple languages.'
 author: 'DataBoySu'
 branding:
-  icon: globe
-  color: blue
+  icon: 'globe'
+  color: 'blue'
 
 inputs:
   lang:
-    description: 'Target language code (e.g., de, fr). Use "all" to run all locales.'
-    required: false
-    default: 'de'
-  model_path:
-    description: 'Local path to GGUF model on the runner (optional).'
-    required: false
-    default: ''
-  model_url:
-    description: 'Optional URL to download GGUF model into the runner cache.'
-    required: false
-    default: ''
-  token_name:
-    description: 'Name of the secret that stores a write-capable GitHub token (e.g. GH_TOKEN).'
-    required: false
-    default: 'GH_TOKEN'
-  nav_target:
-    description: 'README file to update (path relative to repo root).'
-    required: false
+    description: 'Target language code (e.g., fr, de, ja, es)'
+    required: true
+  readme_path:
+    description: 'Path to the README file to translate (relative to repo root)'
     default: 'README.md'
-  commit:
-    description: 'If true, commit and push README changes back to the repo (requires permissions).'
     required: false
-    default: 'false'
-  commit_message:
-    description: 'Commit message to use when committing README changes.'
+  model_url:
+    description: 'URL to download the GGUF model'
+    default: 'https://huggingface.co/lmstudio-community/aya-expanse-8b-GGUF/resolve/main/aya-expanse-8b-Q4_K_M.gguf'
     required: false
-    default: 'Update README translations'
+  model_cache_path:
+    description: 'Path to cache the model (internal)'
+    default: '.cache/models'
+    required: false
 
 runs:
-  using: 'composite'
+  using: "composite"
   steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
-
-    - name: Resolve token and verify (fast-fail)
-      shell: bash
-      run: |
-        set -euo pipefail
-        echo "[action] Resolving token using input: '${{ inputs.token_name }}'"
-        TOKEN="${{ secrets[ inputs.token_name ] }}"
-        if [ -z "$TOKEN" ]; then
-          echo "[action] Named secret empty; falling back to built-in GITHUB_TOKEN"
-          TOKEN="${{ secrets.GITHUB_TOKEN }}"
-        fi
-        if [ -z "$TOKEN" ]; then
-          echo "No token available. Set 'token_name' to a repository secret or provide GITHUB_TOKEN." >&2
-          exit 1
-        fi
-        echo "GITHUB_TOKEN=$TOKEN" >> "$GITHUB_ENV"
-
-        if [ "${{ inputs.commit }}" = 'true' ]; then
-          echo "[action] Verifying token scopes via GitHub API"
-          headers=$(curl -sI -H "Authorization: token $TOKEN" https://api.github.com/user || true)
-          echo "$headers"
-          scopes=$(echo "$headers" | tr -d '\r' | awk -F': ' '/^X-OAuth-Scopes/ {print tolower($2)}' || true)
-          if [ -z "$scopes" ]; then
-            echo "Could not determine token scopes. Ensure the secret is valid." >&2
-            exit 1
-          fi
-          echo "Token scopes: $scopes"
-          echo "$scopes" | grep -q "repo" || { echo "Token missing 'repo' scope (or equivalent). Aborting." >&2; exit 1; }
-        fi
-
-    - name: Setup Python
+    - name: Set up Python
       uses: actions/setup-python@v4
       with:
-        python-version: '3.11'
+        python-version: '3.10'
 
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r "$GITHUB_ACTION_PATH/requirements.txt"
+    - name: Cache Translator Model
+      id: cache-model
+      uses: actions/cache@v3
+      with:
+        path: ${{ github.workspace }}/${{ inputs.model_cache_path }}
+        key: translator-model-aya-expanse-8b-v1
 
-    - name: Run translator (entrypoint)
+    - name: Run Entrypoint
+      shell: bash
       env:
-        INPUT_LANG: ${{ inputs.lang }}
-        INPUT_MODEL_PATH: ${{ inputs.model_path }}
-        INPUT_MODEL_URL: ${{ inputs.model_url }}
-        INPUT_NAV_TARGET: ${{ inputs.nav_target }}
+        MODEL_CACHE_DIR: ${{ github.workspace }}/${{ inputs.model_cache_path }}
       run: |
-        chmod +x "$GITHUB_ACTION_PATH/entrypoint.sh"
-        "$GITHUB_ACTION_PATH/entrypoint.sh"
-    - name: Commit & push changes
-      if: ${{ inputs.commit == 'true' }}
-      # `GITHUB_TOKEN` is provided via $GITHUB_ENV by the Resolve token step
-      run: |
-        set -e
-        git config user.name "readme-translator[bot]"
-        git config user.email "readme-translator[bot]@users.noreply.github.com"
-        git add "${{ inputs.nav_target }}" || true
-        git add locales || true
-        # Use token-authenticated remote so push succeeds
-        git remote set-url origin https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}
-        if git diff --cached --quiet; then
-          echo "No changes to commit"
-        else
-          git commit -m "${{ inputs.commit_message }}"
-          git push origin HEAD
-        fi
+        # We execute the entrypoint script located in the action's path
+        chmod +x ${{ github.action_path }}/entrypoint.sh
+        ${{ github.action_path }}/entrypoint.sh "${{ inputs.lang }}" "${{ inputs.readme_path }}" "${{ inputs.model_url }}"

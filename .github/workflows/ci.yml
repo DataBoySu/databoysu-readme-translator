@@ -11,16 +11,27 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Setup Python
-        uses: actions/setup-python@v4
         with:
-          python-version: '3.11'
-      - name: Install deps
+          fetch-depth: 0
+
+      - name: Create Dummy README
         run: |
-          python -m pip install --upgrade pip
-          pip install -r "$GITHUB_WORKSPACE/readme-translator-action/requirements.txt"
-          # Install pytest for CI tests
-          python -m pip install pytest
-      - name: Run tests
+          echo "# Test Project" > TEST_README.md
+          echo "This is a test description for the AI translator." >> TEST_README.md
+          echo "## Features" >> TEST_README.md
+          echo "- Fast translation" >> TEST_README.md
+
+      - name: Run Translator Action (French)
+        uses: ./ # Uses the action from the current repository
+        with:
+          lang: 'fr'
+          readme_path: 'TEST_README.md'
+
+      - name: Verify Output
         run: |
-          python -m pytest -q readme-translator-action/tests -q
+          if [ ! -f "locales/README.fr.md" ]; then
+            echo "Error: Translation file not generated."
+            exit 1
+          fi
+          echo "Translation content:"
+          cat locales/README.fr.md

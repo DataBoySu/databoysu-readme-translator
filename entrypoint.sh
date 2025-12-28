@@ -1,58 +1,47 @@
-#!/usr/bin/env bash
-set -euo pipefail
+#!/bin/bash
+set -e
 
-# Clean entrypoint wrapper for DataBoySu Readme Translator
-# - Downloads a model into the runner cache if necessary
-# - Invokes the packaged translator module
+# Arguments passed from action.yml
+TARGET_LANG="$1"
+NAV_TARGET="$2"
+MODEL_URL="$3"
 
-ACTION_NAME="databoysu-readme-translator"
-RUNNER_CACHE=${RUNNER_TOOL_CACHE:-"$HOME/.cache"}
-MODEL_CACHE_DIR="$RUNNER_CACHE/$ACTION_NAME/models"
-mkdir -p "$MODEL_CACHE_DIR"
+# Resolve the directory where this script (and the action) resides
+ACTION_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Default Aya Expanse 8B (Q4_K_M) model hosted on Hugging Face
-DEFAULT_MODEL_URL="https://huggingface.co/lmstudio-community/aya-expanse-8b-GGUF/resolve/main/aya-expanse-8b-Q4_K_M.gguf"
+echo "[INFO] Action Directory: $ACTION_DIR"
+echo "[INFO] Target Language: $TARGET_LANG"
 
-# Inputs passed via env or defaults
-INPUT_LANG="${INPUT_LANG:-de}"
-INPUT_MODEL_PATH="${INPUT_MODEL_PATH:-}"
-INPUT_MODEL_URL="${INPUT_MODEL_URL:-}"
-INPUT_NAV_TARGET="${INPUT_NAV_TARGET:-README.md}"
+# 1. Install Python Dependencies
+# We use --target to install into the action's folder to avoid polluting the user's environment
+# or we can just install globally in the runner since it's ephemeral.
+echo "[INFO] Installing dependencies..."
+pip install -r "$ACTION_DIR/requirements.txt"
 
-echo "[entrypoint] lang=$INPUT_LANG nav_target=$INPUT_NAV_TARGET"
-
-# Prefer explicit model path, then model URL, then default cached model
-MODEL_PATH="$INPUT_MODEL_PATH"
-if [ -z "$MODEL_PATH" ] && [ -n "$INPUT_MODEL_URL" ]; then
-  FNAME=$(basename "$INPUT_MODEL_URL")
-  MODEL_PATH="$MODEL_CACHE_DIR/$FNAME"
-  if [ ! -f "$MODEL_PATH" ]; then
-    echo "[entrypoint] downloading model from $INPUT_MODEL_URL -> $MODEL_PATH"
-    curl -sSL "$INPUT_MODEL_URL" -o "$MODEL_PATH"
-  else
-    echo "[entrypoint] using cached model $MODEL_PATH"
-  fi
-fi
-
-if [ -z "$MODEL_PATH" ]; then
-  # attempt to use a default cached model filename
-  FNAME=$(basename "$DEFAULT_MODEL_URL")
-  MODEL_PATH="$MODEL_CACHE_DIR/$FNAME"
-  if [ ! -f "$MODEL_PATH" ]; then
-    echo "[entrypoint] cache miss; downloading default Aya model -> $MODEL_PATH"
-    curl -sSL "$DEFAULT_MODEL_URL" -o "$MODEL_PATH"
-  else
-    echo "[entrypoint] using cached default model $MODEL_PATH"
-  fi
+# 2. Model Management
+# Use the cached directory provided by action.yml, or fallback to local models dir
+if [ -n "$MODEL_CACHE_DIR" ]; then
+    MODEL_DIR="$MODEL_CACHE_DIR"
 else
-  echo "[entrypoint] model_path=$MODEL_PATH"
+    MODEL_DIR="$ACTION_DIR/models"
 fi
 
-# Run translator as a module (import-safe)
-PY_CMD=(python -m readme_translator_action.translator.translate --lang "$INPUT_LANG" --nav-target "$INPUT_NAV_TARGET")
-if [ -n "$MODEL_PATH" ]; then
-  PY_CMD+=(--model-path "$MODEL_PATH")
+MODEL_FILE="$MODEL_DIR/model.gguf"
+
+if [ ! -f "$MODEL_FILE" ]; then
+    echo "[INFO] Model not found. Downloading from $MODEL_URL..."
+    mkdir -p "$MODEL_DIR"
+    # Use curl with fail (-f), location (-L), and show error (-S)
+    curl -fL -S "$MODEL_URL" -o "$MODEL_FILE"
+else
+    echo "[INFO] Model found at $MODEL_FILE"
 fi
 
-echo "[entrypoint] running: ${PY_CMD[*]}"
-"${PY_CMD[@]}"
+# 3. Run Translation
+echo "[INFO] Starting Translation Script..."
+python "$ACTION_DIR/translator/translate.py" \
+  --lang "$TARGET_LANG" \
+  --nav-target "$NAV_TARGET" \
+  --model-path "$MODEL_FILE"
+
+echo "[SUCCESS] Entrypoint finished."

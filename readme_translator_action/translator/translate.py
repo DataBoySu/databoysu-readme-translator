@@ -1,6 +1,9 @@
 import os
 import re
+import sys
 import argparse
+import logging
+from pathlib import Path
 from typing import List, Tuple
 
 # Import llama inside main() to keep module import-safe for tests
@@ -19,6 +22,29 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__fil
 
 # language guidance (populated in main)
 lang_guidance = ""
+
+
+# Forbidden phrases that indicate hallucination
+FORBIDDEN = [
+    "This section", "In this", "In this section", "means", "explains",
+    "以下", "说明", "本节", "在这里", "意味着", "解释",
+    "Dieser Abschnitt", "In diesem", "In diesem Abschnitt", "bedeutet", "erklärt",
+    "Cette section", "Dans cette", "Dans cette section", "signifie", "explique",
+    "Esta sección", "En esta", "En esta sección", "significa", "explica",
+    "このセクション", "この中で", "このセクションでは", "意味する", "説明する",
+]
+
+# Language-specific expansion multipliers for length validation
+HIGH_MULTIPLIER_MAP = {
+    "ja": 5.5,
+    "hi": 5.5,
+    "ar": 4.0,
+    "he": 4.0,
+    "fa": 4.0,
+    "ru": 3.5,
+    "uk": 3.5,
+    "pl": 3.5,
+}
 
 
 def get_system_header(target_lang_name: str) -> str:
@@ -99,6 +125,63 @@ def get_smart_chunks(text: str) -> List[Tuple[str, str]]:
     return new_chunks
 
 
+def _classify_text_as_struct_or_prose(text: str) -> str:
+    t = text.strip()
+    if (
+        t.startswith(('<div', '<details', '```')) or
+        t.startswith('<!--') or t.endswith('-->') or
+        re.match(r'!\[.*?\]\(.*?\)', t) or
+        re.match(r'\[.*?\]\(.*?\)', t)
+    ):
+        return 'struct'
+    return 'prose'
+
+
+def split_struct_blockquotes(chunks: List[Tuple[str, str]]) -> List[Tuple[str, str]]:
+    out = []
+    for ctype, ctext in chunks:
+        if ctype != 'struct' or not re.search(r'^\s*>', ctext, flags=re.MULTILINE):
+            out.append((ctype, ctext))
+            continue
+
+        lines = ctext.splitlines(True)
+
+        start = None
+        for idx, line in enumerate(lines):
+            if line.lstrip().startswith('>'):
+                start = idx
+                break
+
+        if start is None:
+            out.append((ctype, ctext))
+            continue
+
+        end = start
+        while end + 1 < len(lines):
+            nxt = lines[end + 1]
+            if nxt.lstrip().startswith('>'):
+                end += 1
+                continue
+            if nxt.strip() == '':
+                if end + 2 < len(lines) and lines[end + 2].lstrip().startswith('>'):
+                    end += 1
+                    continue
+                break
+            break
+
+        before = ''.join(lines[:start]).strip()
+        block = ''.join(lines[start:end+1]).strip()
+        after = ''.join(lines[end+1:]).strip()
+
+        if before:
+            out.append(('struct', before))
+        out.append(('prose', block))
+        if after:
+            out.append((_classify_text_as_struct_or_prose(after), after))
+
+    return out
+
+
 def merge_small_chunks(chunks: List[Tuple[str, str]], min_chars: int = 400) -> List[Tuple[str, str]]:
     merged = []
     i = 0
@@ -139,6 +222,15 @@ def translate_chunk(text: str, llm_callable, is_lone_header: bool = False) -> st
         translated = "\n".join(lines).strip()
 
     return translated
+
+
+def fix_relative_paths(text: str) -> str:
+    # Matches Markdown links [text](path)
+    # Ignores http, /, #, and already existing ../
+    text = re.sub(r'(\[.*?\]\()(?!(?:http|/|#|\.\./))', r'\1../', text)
+    # Matches HTML attributes src="path" or href="path"
+    text = re.sub(r'((?:src|href)=["\'])(?!(?:http|/|#|\.\./))', r'\1../', text)
+    return text
 
 
 def inject_navbar(readme_text: str, langs: List[str]) -> str:
@@ -210,10 +302,13 @@ def main(lang: str, model_path: str = '', nav_target: str = 'README.md'):
     with open(readme_path, 'r', encoding='utf-8') as f:
         content = f.read()
 
-    chunks = merge_small_chunks(get_smart_chunks(content))
+    chunks = get_smart_chunks(content)
+    # Split struct chunks that contain blockquotes
+    chunks = split_struct_blockquotes(chunks)
+    chunks = merge_small_chunks(chunks)
 
     final_output = []
-    multiplier = 2.5
+    multiplier = HIGH_MULTIPLIER_MAP.get(lang, 2.5)
 
     for i, (ctype, ctext) in enumerate(chunks):
         if ctype == 'struct':
@@ -223,15 +318,17 @@ def main(lang: str, model_path: str = '', nav_target: str = 'README.md'):
         is_lone_header = ctext.strip().startswith('#') and '\n' not in ctext.strip()
         translated = translate_chunk(ctext, llm, is_lone_header)
 
-        if len(translated) > multiplier * len(ctext):
+        # Quality validation: length check and forbidden phrase detection
+        if len(translated) > multiplier * len(ctext) or any(f in translated for f in FORBIDDEN):
+            print(f"[WARN] Chunk {i+1} failed validation, using original text")
             translated = ctext
 
         final_output.append(translated.rstrip() + '\n\n')
 
     full_text = ''.join(final_output)
 
-    full_text = re.sub(r'(\[.*?\]\()(?!(?:http|/|#|\.\./))', r'\1../', full_text)
-    full_text = re.sub(r'((?:src|href)=["\"])(?!(?:http|/|#|\.\./))', r'\1../', full_text)
+    # Fix relative links and attributes
+    full_text = fix_relative_paths(full_text)
 
     with open(output_path, 'w', encoding='utf-8') as f:
         f.write(full_text)
@@ -265,5 +362,23 @@ if __name__ == '__main__':
     parser.add_argument("--model-path", type=str, default="")
     parser.add_argument("--nav-target", type=str, default="README.md")
     args = parser.parse_args()
+
+    # Basic logging for CLI runs
+    logging.basicConfig(level=logging.INFO, format='[translate] %(message)s')
+
+    # Support a convenience mode: --lang all will iterate over all scripts/*.txt
+    if args.lang.lower() == 'all':
+        scripts_dir = Path(BASE_DIR) / 'scripts'
+        if not scripts_dir.exists():
+            logging.error('scripts/ directory not found; cannot translate all languages')
+            sys.exit(1)
+        for p in sorted(scripts_dir.glob('*.txt')):
+            lang_code = p.stem
+            logging.info(f'Translating language: {lang_code}')
+            try:
+                main(lang_code, model_path=args.model_path, nav_target=args.nav_target)
+            except Exception as e:
+                logging.error(f'Error translating {lang_code}: {e}')
+        sys.exit(0)
 
     main(args.lang, model_path=args.model_path, nav_target=args.nav_target)

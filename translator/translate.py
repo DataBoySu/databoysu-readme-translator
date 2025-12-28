@@ -1,8 +1,9 @@
 import os
 import re
 import argparse
+from llama_cpp import Llama
 
-# Minimal standalone copy of the pipeline; LLM initialization is performed in main()
+# translation pipeline for GitHub Action
 
 LANG_MAP = {
     "de": "German", "fr": "French", "es": "Spanish", "ja": "Japanese",
@@ -14,12 +15,145 @@ LANG_MAP = {
     "uk": "Ukrainian", "vi": "Vietnamese", "zh-tw": "Chinese(Traditional)",
 }
 
+# Forbidden phrases that indicate hallucination
+FORBIDDEN = [
+    # English
+    "This section", "In this", "In this section", "means", "explains",
+    # Chinese (Simplified)
+    "以下", "说明", "本节", "在这里", "意味着", "解释",
+    # German
+    "Dieser Abschnitt", "In diesem", "In diesem Abschnitt", "bedeutet", "erklärt",
+    # French
+    "Cette section", "Dans cette", "Dans cette section", "signifie", "explique",
+    # Spanish
+    "Esta sección", "En esta", "En esta sección", "significa", "explica",
+    # Japanese
+    "このセクション", "この中で", "このセクションでは", "意味する", "説明する",
+    # Russian
+    "Этот раздел", "В этом", "В этом разделе", "означает", "объясняет", "ниже",
+    # Arabic
+    "هذا القسم", "في هذا", "في هذا القسم", "يعني", "يشرح",
+    # Czech
+    "Tato sekce", "V tomto", "V této sekci", "znamená", "vysvětluje",
+    # Dutch
+    "Deze sectie", "In dit", "In deze sectie", "betekent", "verklaart",
+    # Greek
+    "Αυτό το τμήμα", "Σε αυτό", "Σε αυτό το τμήμα", "σημαίνει", "εξηγεί",
+    # Hebrew
+    "סעיף זה", "בזה", "בסעיף זה", "משמעותו", "מסביר",
+    # Indonesian
+    "Bagian ini", "Dalam ini", "Di bagian ini", "berarti", "menjelaskan",
+    # Italian
+    "Questa sezione", "In questo", "In questa sezione", "significa", "spiega",
+    # Persian (Farsi)
+    "این بخش", "در این", "در این بخش", "معنی می‌دهد", "توضیح می‌دهد",
+    # Polish
+    "Ta sekcja", "W tym", "W tej sekcji", "oznacza", "wyjaśnia",
+    # Romanian
+    "Această secțiune", "În acest", "În această secțiune", "înseamnă", "explică",
+    # Turkish
+    "Bu bölüm", "Bunda", "Bu bölümde", "anlamına gelir", "açıklar",
+    # Ukrainian
+    "Цей розділ", "У цьому", "У цьому розділі", "означає", "пояснює",
+    # Vietnamese
+    "Phần này", "Trong này", "Trong phần này", "có nghĩa là", "giải thích",
+    # Traditional Chinese
+    "以下", "說明", "本節", "在這裡", "意味著", "解釋",
+    # Portuguese
+    "Esta seção", "Nesta seção", "significa", "explica",
+    # Korean
+    "이 섹션", "이 안에서", "이 섹션에서는", "의미한다", "설명한다",
+    # Hindi
+    "यह अनुभाग", "इसमें", "इस अनुभाग में", "का अर्थ है", "समझाता है",
+]
+
+# Language-specific expansion multipliers for length validation
+HIGH_MULTIPLIER_MAP = {
+    "ja": 5.5,  # Japanese can expand significantly
+    "hi": 5.5,  # Hindi often requires more tokens
+    "ar": 4.0,  # Arabic expands moderately
+    "he": 4.0,  # Hebrew
+    "fa": 4.0,  # Persian (Farsi)
+    "ru": 3.5,  # Russian
+    "uk": 3.5,  # Ukrainian
+    "pl": 3.5,  # Polish
+}
+
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # lang_guidance and path variables are set inside main() to keep module import-safe
 lang_guidance = ""
+SYSTEM_HEADER = ""
+SYSTEM_PROSE = ""
 
 # 2. Smart Chunking Functions
+
+def _classify_text_as_struct_or_prose(text):
+    t = text.strip()
+    if (
+        t.startswith(('<div', '<details', '```')) or
+        t.startswith('<!--') or t.endswith('-->') or
+        re.match(r'!\[.*?\]\(.*?\)', t) or
+        re.match(r'\[.*?\]\(.*?\)', t)
+    ):
+        return 'struct'
+    return 'prose'
+
+
+def split_struct_blockquotes(chunks):
+    """Split any `struct` chunk that contains a markdown blockquote into
+    a `struct` part before the quote, a `prose` blockquote part, and an
+    optional tail (struct/prose) after. This handles cases where placeholders
+    like <!-- HTML_BLOCK --> are adjacent to a quoted one-line description.
+    """
+    out = []
+    for ctype, ctext in chunks:
+        if ctype != 'struct' or not re.search(r'^\s*>', ctext, flags=re.MULTILINE):
+            out.append((ctype, ctext))
+            continue
+
+        # Work with original lines to preserve spacing
+        lines = ctext.splitlines(True)
+
+        # find first line that starts with '>' (block quote)
+        start = None
+        for idx, line in enumerate(lines):
+            if line.lstrip().startswith('>'):
+                start = idx
+                break
+
+        if start is None:
+            out.append((ctype, ctext))
+            continue
+
+        # find end of contiguous blockquote region, include adjacent blank lines
+        end = start
+        while end + 1 < len(lines):
+            nxt = lines[end + 1]
+            if nxt.lstrip().startswith('>'):
+                end += 1
+                continue
+            # include a single blank line immediately after blockquote
+            if nxt.strip() == '':
+                # only include if followed by another blockquote line
+                if end + 2 < len(lines) and lines[end + 2].lstrip().startswith('>'):
+                    end += 1
+                    continue
+                # otherwise, treat blank as separator and stop
+                break
+            break
+
+        before = ''.join(lines[:start]).strip()
+        block = ''.join(lines[start:end+1]).strip()
+        after = ''.join(lines[end+1:]).strip()
+
+        if before:
+            out.append(('struct', before))
+        out.append(('prose', block))
+        if after:
+            out.append((_classify_text_as_struct_or_prose(after), after))
+
+    return out
 
 def get_smart_chunks(text):
     pattern = r'(' \
@@ -77,27 +211,6 @@ def merge_small_chunks(chunks, min_chars=400):
 
 
 # 3. Prompts (minimal)
-SYSTEM_HEADER = (
-    f"You are a technical translation filter for {target_lang_name}.\n"
-    "STRICT RULES:\n"
-    "- The input is a single section header. Translate it 1:1.\n"
-    "- DO NOT generate any content, lists, or descriptions under the header.\n"
-    "- Preserve the '#' symbols exactly.\n"
-    "- Output ONLY the translated header.\n"
-    "- Preserve original formatting, punctuation, whitespace, and markdown/code symbols exactly; do NOT normalize, reflow, or 'fix' the input."
-)
-
-SYSTEM_PROSE = (
-    f"You are a professional technical translation engine. Your task: Translate the input into {target_lang_name}.\n"
-    "STRICT RULES:\n"
-    "- Output ONLY the final translated text. No intros.\n"
-    "- NEVER modify HTML tags, attributes (href, src), or CSS styles.\n"
-    "- Keep technical terms (GPU, VRAM, CLI, Docker, GEMM, PIDs, NVLink) in English.\n"
-    "- Preserve all Markdown symbols (#, **, `, -, [link](url)) exactly.\n"
-    "- Do NOT modify formatting, whitespace, punctuation, code fences, list markers, or emphasis markers; translate only the human-visible text."
-)
-
-
 def translate_chunk(text, llm, is_lone_header=False):
     current_system_prompt = SYSTEM_HEADER if is_lone_header else SYSTEM_PROSE
     if lang_guidance and not is_lone_header:
@@ -161,6 +274,27 @@ def main(lang, model_path='', nav_target='README.md'):
     """
     target_lang_name = LANG_MAP.get(lang, "English")
 
+    global SYSTEM_HEADER, SYSTEM_PROSE
+    SYSTEM_HEADER = (
+        f"You are a technical translation filter for {target_lang_name}.\n"
+        "STRICT RULES:\n"
+        "- The input is a single section header. Translate it 1:1.\n"
+        "- DO NOT generate any content, lists, or descriptions under the header.\n"
+        "- Preserve the '#' symbols exactly.\n"
+        "- Output ONLY the translated header.\n"
+        "- Preserve original formatting, punctuation, whitespace, and markdown/code symbols exactly; do NOT normalize, reflow, or 'fix' the input."
+    )
+
+    SYSTEM_PROSE = (
+        f"You are a professional technical translation engine. Your task: Translate the input into {target_lang_name}.\n"
+        "STRICT RULES:\n"
+        "- Output ONLY the final translated text. No intros.\n"
+        "- NEVER modify HTML tags, attributes (href, src), or CSS styles.\n"
+        "- Keep technical terms (GPU, VRAM, CLI, Docker, GEMM, PIDs, NVLink) in English.\n"
+        "- Preserve all Markdown symbols (#, **, `, -, link) exactly.\n"
+        "- Do NOT modify formatting, whitespace, punctuation, code fences, list markers, or emphasis markers; translate only the human-visible text."
+    )
+
     # Load language-specific guidance if present in scripts/ folder
     scripts_dir = os.path.join(BASE_DIR, "scripts")
     guidance_file = os.path.join(scripts_dir, f"{lang}.txt")
@@ -170,8 +304,9 @@ def main(lang, model_path='', nav_target='README.md'):
         with open(guidance_file, "r", encoding="utf-8") as f:
             lang_guidance = f.read().strip()
 
-    readme_path = os.path.join(BASE_DIR, nav_target)
-    output_dir = os.path.join(BASE_DIR, "locales")
+    # Use current working directory for target repo files
+    readme_path = os.path.abspath(nav_target)
+    output_dir = os.path.join(os.getcwd(), "locales")
     output_path = os.path.join(output_dir, f"README.{lang}.md")
 
     # Initialize LLM here to avoid import-time side-effects
@@ -183,10 +318,12 @@ def main(lang, model_path='', nav_target='README.md'):
     with open(readme_path, 'r', encoding='utf-8') as f:
         content = f.read()
 
-    chunks = merge_small_chunks(get_smart_chunks(content))
+    chunks = get_smart_chunks(content)
+    chunks = split_struct_blockquotes(chunks)
+    chunks = merge_small_chunks(chunks)
 
     final_output = []
-    multiplier = 2.5
+    multiplier = HIGH_MULTIPLIER_MAP.get(lang, 2.5)
 
     for i, (ctype, ctext) in enumerate(chunks):
         if ctype == 'struct':
@@ -196,7 +333,8 @@ def main(lang, model_path='', nav_target='README.md'):
         is_lone_header = ctext.strip().startswith('#') and '\n' not in ctext.strip()
         translated = translate_chunk(ctext, llm, is_lone_header)
 
-        if len(translated) > multiplier * len(ctext):
+        if len(translated) > multiplier * len(ctext) or any(f in translated for f in FORBIDDEN):
+            print(f"[WARN] Chunk {i+1} failed validation, using original text")
             translated = ctext
 
         final_output.append(translated.rstrip() + '\n\n')
@@ -211,7 +349,7 @@ def main(lang, model_path='', nav_target='README.md'):
 
     # Inject navbar into repository README (top)
     # Discover all locale files under the locales folder and collect language codes
-    locales_dir = os.path.join(BASE_DIR, 'locales')
+    locales_dir = output_dir
     discovered = []
     if os.path.isdir(locales_dir):
         for fname in os.listdir(locales_dir):
