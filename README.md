@@ -45,7 +45,7 @@ You can use any of the following codes in the `lang` input.
 
 ## Quick start (Drag & Drop)
 
-To translate your README into the **9 default languages** automatically on push, or **manually specify languages** via the Actions tab, create a file named `.github/workflows/translate.yml` in your repository and paste the following:
+To translate your README into the **4 default languages** automatically on push, or **manually specify languages** via the Actions tab, create a file named `.github/workflows/translate.yml` in your repository and paste the following:
 
 ```yaml
 name: Translate Readme
@@ -119,41 +119,12 @@ jobs:
           path: locales
           merge-multiple: true
 
-      - name: Regenerate Navbar
-        run: |
-          python3 -c "
-          import os, re
-          readme_path = 'README.md'
-          locales_dir = 'locales'
-          nav_data = {
-              "ar": ("🇸🇦", "العربية"), "cs": ("🇨🇿", "Čeština"), "de": ("🇩🇪", "Deutsch"),
-              "el": ("🇬🇷", "Ελληνικά"), "en": ("🇺🇸", "English"), "es": ("🇪🇸", "Español"),
-              "fa": ("🇮🇷", "فارسی"), "fr": ("🇫🇷", "Français"), "he": ("🇮🇱", "עברית"),
-              "hi": ("🇮🇳", "हिंदी"), "id": ("🇮🇩", "Bahasa Indonesia"), "it": ("🇮🇹", "Italiano"),
-              "ja": ("🇯🇵", "日本語"), "ko": ("🇰🇷", "한국어"), "nl": ("🇳🇱", "Nederlands"),
-              "pl": ("🇵🇱", "Polski"), "pt": ("🇵🇹", "Português"), "ro": ("🇷🇴", "Română"),
-              "ru": ("🇷🇺", "Русский"), "tr": ("🇹🇷", "Türkçe"), "uk": ("🇺🇦", "Українська"),
-              "vi": ("🇻🇳", "Tiếng Việt"), "zh": ("🇨🇳", "中文"), "zh-tw": ("🇹🇼", "繁體中文")
-          }
-          if os.path.exists(locales_dir):
-              langs = sorted([re.match(r'README\.(.+?)\.md$', f).group(1) for f in os.listdir(locales_dir) if re.match(r'README\.(.+?)\.md$', f)])
-              links = [f'<a href="README.md">🇺🇸 English</a>']
-              for l in langs:
-                  flag, name = nav_data.get(l, ("🏳️", l.upper()))
-                  links.append(f'<a href="locales/README.{l}.md">{flag} {name}</a>')
-              navbar = ' | '.join(links)
-              start, end = '<!--START_SECTION:navbar-->', '<!--END_SECTION:navbar-->'
-              block = f'{start}\n<div align="center">\n  {navbar}\n</div>\n{end}\n\n'
-              with open(readme_path, 'r', encoding='utf-8') as f: content = f.read()
-              pattern = re.compile(f'{re.escape(start)}.*?{re.escape(end)}\s*', re.DOTALL)
-              if pattern.search(content):
-                  content = pattern.sub(block, content)
-              else:
-                  content = block + content
-              with open(readme_path, 'w', encoding='utf-8') as f: f.write(content)
-          "
+      - name: Navigation Bar
+        uses: DataBoySu/databoysu-readme-translator@v1
+        with:
+          mode: navbar
 
-      - name: Saving Changes
+      - name: Commit Changes
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: "✨💖 docs: updated translations & navbar! 🌸✨"

@@ -5,8 +5,6 @@ Handles chunking, translation via LLM, and navbar injection.
 import os
 import re
 import argparse
-# pylint: disable=import-error
-from llama_cpp import Llama
 
 # translation pipeline for GitHub Action
 
@@ -18,6 +16,33 @@ LANG_MAP = {
     "el": "Greek", "he": "Hebrew", "id": "Indonesian", "it": "Italian",
     "fa": "Persian", "pl": "Polish", "ro": "Romanian", "tr": "Turkish",
     "uk": "Ukrainian", "vi": "Vietnamese", "zh-tw": "Chinese(Traditional)",
+}
+
+NAV_DATA = {
+    "ar": ("🇸🇦", "العربية"),
+    "cs": ("🇨🇿", "Čeština"),
+    "de": ("🇩🇪", "Deutsch"),
+    "el": ("🇬🇷", "Ελληνικά"),
+    "en": ("🇺🇸", "English"),
+    "es": ("🇪🇸", "Español"),
+    "fa": ("🇮🇷", "فارسی"),
+    "fr": ("🇫🇷", "Français"),
+    "he": ("🇮🇱", "עברית"),
+    "hi": ("🇮🇳", "हिंदी"),
+    "id": ("🇮🇩", "Bahasa Indonesia"),
+    "it": ("🇮🇹", "Italiano"),
+    "ja": ("🇯🇵", "日本語"),
+    "ko": ("🇰🇷", "한국어"),
+    "nl": ("🇳🇱", "Nederlands"),
+    "pl": ("🇵🇱", "Polski"),
+    "pt": ("🇵🇹", "Português"),
+    "ro": ("🇷🇴", "Română"),
+    "ru": ("🇷🇺", "Русский"),
+    "tr": ("🇹🇷", "Türkçe"),
+    "uk": ("🇺🇦", "Українська"),
+    "vi": ("🇻🇳", "Tiếng Việt"),
+    "zh": ("🇨🇳", "中文"),
+    "zh-tw": ("🇹🇼", "繁體中文"),
 }
 
 # Forbidden phrases that indicate hallucination
@@ -247,42 +272,15 @@ def inject_navbar(readme_text, langs):
     start_marker = '<!--START_SECTION:navbar-->'
     end_marker = '<!--END_SECTION:navbar-->'
 
-    nav_data = {
-        "ar": ("🇸🇦", "العربية"),
-        "cs": ("🇨🇿", "Čeština"),
-        "de": ("🇩🇪", "Deutsch"),
-        "el": ("🇬🇷", "Ελληνικά"),
-        "en": ("🇺🇸", "English"),
-        "es": ("🇪🇸", "Español"),
-        "fa": ("🇮🇷", "فارسی"),
-        "fr": ("🇫🇷", "Français"),
-        "he": ("🇮🇱", "עברית"),
-        "hi": ("🇮🇳", "हिंदी"),
-        "id": ("🇮🇩", "Bahasa Indonesia"),
-        "it": ("🇮🇹", "Italiano"),
-        "ja": ("🇯🇵", "日本語"),
-        "ko": ("🇰🇷", "한국어"),
-        "nl": ("🇳🇱", "Nederlands"),
-        "pl": ("🇵🇱", "Polski"),
-        "pt": ("🇵🇹", "Português"),
-        "ro": ("🇷🇴", "Română"),
-        "ru": ("🇷🇺", "Русский"),
-        "tr": ("🇹🇷", "Türkçe"),
-        "uk": ("🇺🇦", "Українська"),
-        "vi": ("🇻🇳", "Tiếng Việt"),
-        "zh": ("🇨🇳", "中文"),
-        "zh-tw": ("🇹🇼", "繁體中文"),
-    }
-
     links = []
     # Always include English (Root) first
-    flag, name = nav_data.get("en", ("🇺🇸", "English"))
+    flag, name = NAV_DATA.get("en", ("🇺🇸", "English"))
     links.append(f'<a href="README.md">{flag} {name}</a>')
 
     for l in sorted(langs):
         if l == "en": continue
-        if l in nav_data:
-            flag, name = nav_data[l]
+        if l in NAV_DATA:
+            flag, name = NAV_DATA[l]
         else:
             flag, name = "🏳️", l.upper()
         href = f"locales/README.{l}.md"
@@ -377,6 +375,60 @@ def run_translation_pipeline(content, llm, lang, prompts, lang_guidance):
     return full_text
 
 
+def regenerate_all_navbars(readme_path, locales_dir):
+    """Regenerate navbars for the root README and all locale files."""
+    if not os.path.exists(locales_dir):
+        print(f"[INFO] No locales directory found at {locales_dir}. Skipping navbar generation.")
+        return
+
+    # Discover languages
+    langs = sorted([re.match(r'README\.(.+?)\.md$', f).group(1) 
+                   for f in os.listdir(locales_dir) 
+                   if re.match(r'README\.(.+?)\.md$', f)])
+    
+    # Helper to generate HTML
+    def get_nav_html(is_root):
+        links = []
+        # English (Root)
+        en_flag, en_name = NAV_DATA.get('en', ('🇺🇸', 'English'))
+        en_href = 'README.md' if is_root else '../README.md'
+        links.append(f'<a href="{en_href}">{en_flag} {en_name}</a>')
+        
+        for l in langs:
+            flag, name = NAV_DATA.get(l, ('🏳️', l.upper()))
+            href = f'locales/README.{l}.md' if is_root else f'README.{l}.md'
+            links.append(f'<a href="{href}">{flag} {name}</a>')
+        
+        return ' | '.join(links)
+
+    # Helper to update file
+    def update_file(path, block):
+        if not os.path.exists(path): return
+        with open(path, 'r', encoding='utf-8') as f: content = f.read()
+        start, end = '<!--START_SECTION:navbar-->', '<!--END_SECTION:navbar-->'
+        # Regex to replace existing block
+        pattern = re.compile(f'{re.escape(start)}.*?{re.escape(end)}\s*', re.DOTALL)
+        if pattern.search(content):
+            content = pattern.sub(block, content)
+        else:
+            content = block + content
+        with open(path, 'w', encoding='utf-8') as f: f.write(content)
+
+    # 1. Update Root
+    root_nav = get_nav_html(is_root=True)
+    start, end = '<!--START_SECTION:navbar-->', '<!--END_SECTION:navbar-->'
+    root_block = f'{start}\n<div align="center">\n  {root_nav}\n</div>\n{end}\n\n'
+    update_file(readme_path, root_block)
+
+    # 2. Update Locales
+    locale_nav = get_nav_html(is_root=False)
+    locale_block = f'{start}\n<div align="center">\n  {locale_nav}\n</div>\n{end}\n\n'
+    for l in langs:
+        update_file(os.path.join(locales_dir, f'README.{l}.md'), locale_block)
+    
+    print(f"[SUCCESS] Regenerated navbars for Root and {len(langs)} locales.")
+
+
 def update_navbar_in_readme(readme_path, output_dir, lang):
     """Discover locales and update the README navbar."""
     locales_dir = output_dir
@@ -404,27 +456,35 @@ def update_navbar_in_readme(readme_path, output_dir, lang):
         f.write(updated)
 
 
-def main(lang, model_path='', nav_target='README.md'):
+def main(lang, model_path='', nav_target='README.md', mode='translate'):
     """Run translation for a single language.
 
     Parameters:
     - lang: language code
     - model_path: path to GGUF model file
     - nav_target: README path relative to repo root
+    - mode: 'translate' or 'navbar'
     """
+    # Use current working directory for target repo files
+    readme_path = os.path.abspath(nav_target)
+    output_dir = os.path.join(os.getcwd(), "locales")
+
+    if mode == 'navbar':
+        regenerate_all_navbars(readme_path, output_dir)
+        return
+
     target_lang_name = LANG_MAP.get(lang, "English")
 
     header_prompt, prose_prompt = get_system_prompts(target_lang_name)
     prompts = {'header': header_prompt, 'prose': prose_prompt}
     lang_guidance = load_guidance(lang)
 
-    # Use current working directory for target repo files
-    readme_path = os.path.abspath(nav_target)
-    output_dir = os.path.join(os.getcwd(), "locales")
     output_path = os.path.join(output_dir, f"README.{lang}.md")
 
     # Initialize LLM here to avoid import-time side-effects
     # pylint: disable=line-too-long
+    # pylint: disable=import-error
+    from llama_cpp import Llama
     mp = model_path or os.path.join(BASE_DIR, 'models', 'aya-expanse-8b-Q4_K_M.gguf')
     llm = Llama(model_path=mp, n_ctx=8192, n_threads=2, verbose=False)
 
@@ -445,9 +505,13 @@ def main(lang, model_path='', nav_target='README.md'):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument("--lang", type=str, required=True)
+    parser.add_argument("--lang", type=str, default="")
     parser.add_argument("--model-path", type=str, default="")
     parser.add_argument("--nav-target", type=str, default="README.md")
+    parser.add_argument("--mode", type=str, default="translate")
     args = parser.parse_args()
 
-    main(args.lang, model_path=args.model_path, nav_target=args.nav_target)
+    if args.mode == "translate" and not args.lang:
+        parser.error("the following arguments are required: --lang")
+
+    main(args.lang, model_path=args.model_path, nav_target=args.nav_target, mode=args.mode)

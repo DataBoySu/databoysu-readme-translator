@@ -8,7 +8,7 @@ branding:
 inputs:
   lang:
     description: 'Target language code (e.g., fr, de, ja, es)'
-    required: true
+    required: false
   readme_path:
     description: 'Path to the README file to translate (relative to repo root)'
     default: 'README.md'
@@ -20,6 +20,10 @@ inputs:
   model_cache_path:
     description: 'Path to cache the model (internal)'
     default: '.cache/models'
+    required: false
+  mode:
+    description: 'Operation mode: translate (default) or navbar'
+    default: 'translate'
     required: false
 
 runs:
@@ -44,4 +48,4 @@ runs:
       run: |
         # We execute the entrypoint script located in the action's path
         chmod +x ${{ github.action_path }}/entrypoint.sh
-        ${{ github.action_path }}/entrypoint.sh "${{ inputs.lang }}" "${{ inputs.readme_path }}" "${{ inputs.model_url }}"
+        ${{ github.action_path }}/entrypoint.sh "${{ inputs.lang }}" "${{ inputs.readme_path }}" "${{ inputs.model_url }}" "${{ inputs.mode }}"
