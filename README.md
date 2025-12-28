@@ -1,4 +1,4 @@
-# DataBoySu Readme Translator (databoysu-readme-translator)
+# DataBoySu Readme Translator
 
 DataBoySu's Readme Translator is a composite GitHub Action that translates a repository README and appends/updates a language navigation bar at the top of the README.
 

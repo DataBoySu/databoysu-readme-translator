@@ -29,7 +29,7 @@ runs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install -r readme-translator-action/requirements.txt
+        pip install -r "$GITHUB_ACTION_PATH/requirements.txt"
 
     - name: Verify token scopes (requires write permission)
       env:
@@ -55,8 +55,8 @@ runs:
         INPUT_LANG: ${{ inputs.lang }}
         INPUT_NAV_TARGET: ${{ inputs.nav_target }}
       run: |
-        chmod +x readme-translator-action/entrypoint.sh
-        ./readme-translator-action/entrypoint.sh
+        chmod +x "$GITHUB_ACTION_PATH/entrypoint.sh"
+        "$GITHUB_ACTION_PATH/entrypoint.sh"
 
     - name: Commit & push changes
       env:
@@ -106,7 +106,7 @@ runs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install -r readme-translator-action/requirements.txt
+        pip install -r "$GITHUB_ACTION_PATH/requirements.txt"
 
     - name: Verify token scopes (requires write permission)
       env:
@@ -132,8 +132,8 @@ runs:
         INPUT_LANG: ${{ inputs.lang }}
         INPUT_NAV_TARGET: ${{ inputs.nav_target }}
       run: |
-        chmod +x readme-translator-action/entrypoint.sh
-        ./readme-translator-action/entrypoint.sh
+        chmod +x "$GITHUB_ACTION_PATH/entrypoint.sh"
+        "$GITHUB_ACTION_PATH/entrypoint.sh"
 
     - name: Commit & push changes
       env:
@@ -187,7 +187,7 @@ runs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install -r readme-translator-action/requirements.txt
+        pip install -r "$GITHUB_ACTION_PATH/requirements.txt"
 
     - name: Run translator (entrypoint)
       env:
@@ -196,8 +196,8 @@ runs:
         INPUT_NAV_TARGET: ${{ inputs.nav_target }}
         INPUT_DRY_RUN: ${{ inputs.dry_run }}
       run: |
-        chmod +x readme-translator-action/entrypoint.sh
-        ./readme-translator-action/entrypoint.sh
+        chmod +x "$GITHUB_ACTION_PATH/entrypoint.sh"
+        "$GITHUB_ACTION_PATH/entrypoint.sh"
 
     - name: Commit & push changes
       if: ${{ inputs.dry_run != 'true' }}
@@ -268,7 +268,7 @@ runs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install -r readme-translator-action/requirements.txt
+        pip install -r "$GITHUB_ACTION_PATH/requirements.txt"
 
     - name: Run translator (entrypoint)
       env:
@@ -279,8 +279,8 @@ runs:
         INPUT_NAV_TARGET: ${{ inputs.nav_target }}
         INPUT_DRY_RUN: ${{ inputs.dry_run }}
       run: |
-        chmod +x readme-translator-action/entrypoint.sh
-        ./readme-translator-action/entrypoint.sh
+        chmod +x "$GITHUB_ACTION_PATH/entrypoint.sh"
+        "$GITHUB_ACTION_PATH/entrypoint.sh"
 
     - name: Commit & push changes
       if: ${{ inputs.commit == 'true' && inputs.dry_run != 'true' }}
