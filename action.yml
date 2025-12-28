@@ -3,7 +3,7 @@ description: 'Automatically translates your README.md into multiple languages.'
 author: 'DataBoySu'
 branding:
   icon: 'globe'
-  color: 'blue'
+  color: 'green'
 
 inputs:
   lang:
