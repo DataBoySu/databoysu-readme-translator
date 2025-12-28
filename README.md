@@ -70,20 +70,63 @@ jobs:
         lang: ${{ fromJson(needs.prepare.outputs.matrix) }}
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          # Use GH_TOKEN (PAT) if available to trigger other workflows, otherwise fallback to default GITHUB_TOKEN
-          token: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}
 
       - name: Run README Translator
+      # @main is you want latest code, @v1 for stable yet outdated first release
         uses: DataBoySu/databoysu-readme-translator@v1
         with:
           lang: ${{ matrix.lang }}
 
+      - name: Upload Translation
+        uses: actions/upload-artifact@v4
+        with:
+          name: locale-${{ matrix.lang }}
+          path: locales/README.${{ matrix.lang }}.md
+
+  commit:
+    needs: translate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}
+
+      - name: Download Translations
+        uses: actions/download-artifact@v4
+        with:
+          pattern: locale-*
+          path: locales
+          merge-multiple: true
+
+      - name: Regenerate Navbar
+        run: |
+          python3 -c "
+          import os, re
+          readme_path = 'README.md'
+          locales_dir = 'locales'
+          if os.path.exists(locales_dir):
+              langs = sorted([re.match(r'README\.(.+?)\.md$', f).group(1) for f in os.listdir(locales_dir) if re.match(r'README\.(.+?)\.md$', f)])
+              if langs:
+                  navbar = ' | '.join([f'[{l}](locales/README.{l}.md)' for l in langs])
+                  start, end = '<!--START_SECTION:navbar-->', '<!--END_SECTION:navbar-->'
+                  block = f'{start}\n{navbar}\n{end}\n\n'
+                  with open(readme_path, 'r', encoding='utf-8') as f: content = f.read()
+                  if start in content and end in content:
+                      before, rest = content.split(start, 1)
+                      _, after = rest.split(end, 1)
+                      content = before + block + after
+                  else:
+                      content = block + content
+                  with open(readme_path, 'w', encoding='utf-8') as f: f.write(content)
+          "
+
       - name: Commit Translations
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
-          commit_message: "docs: update README.${{ matrix.lang }}.md and navbar"
+          commit_message: "docs: update translations and navbar"
           file_pattern: 'README.md locales/*.md'
 ```
 

@@ -247,32 +247,58 @@ def inject_navbar(readme_text, langs):
     start_marker = '<!--START_SECTION:navbar-->'
     end_marker = '<!--END_SECTION:navbar-->'
 
-    def make_link(l):
-        href = f'locales/README.{l}.md'
-        return f'[{l}]({href})'
+    nav_data = {
+        "ar": ("🇸🇦", "العربية"),
+        "cs": ("🇨🇿", "Čeština"),
+        "de": ("🇩🇪", "Deutsch"),
+        "el": ("🇬🇷", "Ελληνικά"),
+        "en": ("🇺🇸", "English"),
+        "es": ("🇪🇸", "Español"),
+        "fa": ("🇮🇷", "فارسی"),
+        "fr": ("🇫🇷", "Français"),
+        "he": ("🇮🇱", "עברית"),
+        "hi": ("🇮🇳", "हिंदी"),
+        "id": ("🇮🇩", "Bahasa Indonesia"),
+        "it": ("🇮🇹", "Italiano"),
+        "ja": ("🇯🇵", "日本語"),
+        "ko": ("🇰🇷", "한국어"),
+        "nl": ("🇳🇱", "Nederlands"),
+        "pl": ("🇵🇱", "Polski"),
+        "pt": ("🇵🇹", "Português"),
+        "ro": ("🇷🇴", "Română"),
+        "ru": ("🇷🇺", "Русский"),
+        "tr": ("🇹🇷", "Türkçe"),
+        "uk": ("🇺🇦", "Українська"),
+        "vi": ("🇻🇳", "Tiếng Việt"),
+        "zh": ("🇨🇳", "中文"),
+        "zh-tw": ("🇹🇼", "繁體中文"),
+    }
 
-    # If navbar exists, parse existing links and add any missing langs
-    if start_marker in readme_text and end_marker in readme_text:
-        before, rest = readme_text.split(start_marker, 1)
-        body, after = rest.split(end_marker, 1)
+    links = []
+    # Always include English (Root) first
+    flag, name = nav_data.get("en", ("🇺🇸", "English"))
+    links.append(f'<a href="README.md">{flag} {name}</a>')
 
-        # extract existing codes from bracket links like [de](...)
-        existing = re.findall(r'\[([^\]]+)\]\([^\)]+\)', body)
-        # build ordered links preserving existing order and appending new ones
-        ordered = [make_link(x) for x in existing]
-        for l in langs:
-            if l not in existing:
-                ordered.append(make_link(l))
+    for l in sorted(langs):
+        if l == "en": continue
+        if l in nav_data:
+            flag, name = nav_data[l]
+        else:
+            flag, name = "🏳️", l.upper()
+        href = f"locales/README.{l}.md"
+        links.append(f'<a href="{href}">{flag} {name}</a>')
 
-        navbar = ' | '.join(ordered)
-        block = f"{start_marker}\n{navbar}\n{end_marker}\n\n"
-        return before + block + after
+    navbar_content = ' | '.join(links)
+    html_block = f'<div align="center">\n  {navbar_content}\n</div>'
+    block = f"{start_marker}\n{html_block}\n{end_marker}\n\n"
 
-    # If no navbar, create one and insert at top
-    new_links = [make_link(l) for l in langs]
-    navbar = ' | '.join(new_links)
-    block = f"{start_marker}\n{navbar}\n{end_marker}\n\n"
-    return block + readme_text
+    # Regex to replace existing block (handling potential multiline content between markers)
+    pattern = re.compile(f'{re.escape(start_marker)}.*?{re.escape(end_marker)}\s*', re.DOTALL)
+
+    if pattern.search(readme_text):
+        return pattern.sub(block, readme_text)
+    else:
+        return block + readme_text
 
 
 def get_system_prompts(target_lang_name):
