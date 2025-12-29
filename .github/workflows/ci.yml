@@ -64,7 +64,7 @@ jobs:
 
       - name: Verify Output
         run: |
-          if [ ! -f "locales/README.fr.md" ]; then
+          if [ ! -f "locales/TEST_README.fr.md" ]; then
             echo "Error: Translation file not generated."
             exit 1
           fi
@@ -74,15 +74,15 @@ jobs:
             echo "Error: Navbar not injected into TEST_README.md"
             exit 1
           fi
-          grep -q "README.md" TEST_README.md
-          grep -q "locales/README.fr.md" TEST_README.md
+          grep -q "TEST_README.md" TEST_README.md
+          grep -q "locales/TEST_README.fr.md" TEST_README.md
 
           echo "Checking Locale README Navbar..."
-          if ! grep -q "<!--START_SECTION:navbar-->" locales/README.fr.md; then
-            echo "Error: Navbar not injected into locales/README.fr.md"
+          if ! grep -q "<!--START_SECTION:navbar-->" locales/TEST_README.fr.md; then
+            echo "Error: Navbar not injected into locales/TEST_README.fr.md"
             exit 1
           fi
-          grep -q "../README.md" locales/README.fr.md
-          grep -q "README.fr.md" locales/README.fr.md
+          grep -q "../TEST_README.md" locales/TEST_README.fr.md
+          grep -q "TEST_README.fr.md" locales/TEST_README.fr.md
 
           echo "End-to-end verification passed."
