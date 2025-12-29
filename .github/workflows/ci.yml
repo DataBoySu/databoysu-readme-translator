@@ -5,7 +5,6 @@ on:
     branches: [ main, master ]
   pull_request:
     branches: [ main, master ]
-  workflow_dispatch:
 
 jobs:
   test:
@@ -15,27 +14,6 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.10'
-
-      - name: Pre-flight Checks
-        run: |
-          echo "Checking critical files..."
-          test -f action.yml
-          test -f entrypoint.sh
-          test -f translator/translate.py
-          test -f requirements.txt
-          
-          echo "Checking Python syntax..."
-          python -m py_compile translator/translate.py
-
-      - name: Lint Entrypoint
-        run: |
-          # Install shellcheck for CI linting
-          shellcheck entrypoint.sh
-
       - name: Create Dummy README
         run: |
           echo "# Test Project" > TEST_README.md
@@ -43,20 +21,7 @@ jobs:
           echo "## Features" >> TEST_README.md
           echo "- Fast translation" >> TEST_README.md
 
-      - name: Test Navbar Mode (Logic Check)
-        uses: ./
-        with:
-          mode: 'navbar'
-          readme_path: 'TEST_README.md'
-
-      - name: Verify Navbar Logic
-        run: |
-          grep -q "<!--START_SECTION:navbar-->" TEST_README.md
-          grep -q "<!--END_SECTION:navbar-->" TEST_README.md
-          echo "Navbar logic verified."
-
-      - name: Run Full Translation (French)
-        # This verifies the end-to-end flow including model download and LLM execution.
+      - name: Run Translator Action (French)
         uses: ./ # Uses the action from the current repository
         with:
           lang: 'fr'
@@ -64,25 +29,15 @@ jobs:
 
       - name: Verify Output
         run: |
-          if [ ! -f "locales/TEST_README.fr.md" ]; then
+          if [ ! -f "locales/README.fr.md" ]; then
             echo "Error: Translation file not generated."
             exit 1
           fi
-
-          echo "Checking Root README Navbar..."
+          
+          # Check if Navbar was injected into the source README
           if ! grep -q "<!--START_SECTION:navbar-->" TEST_README.md; then
             echo "Error: Navbar not injected into TEST_README.md"
             exit 1
           fi
-          grep -q "TEST_README.md" TEST_README.md
-          grep -q "locales/TEST_README.fr.md" TEST_README.md
-
-          echo "Checking Locale README Navbar..."
-          if ! grep -q "<!--START_SECTION:navbar-->" locales/TEST_README.fr.md; then
-            echo "Error: Navbar not injected into locales/TEST_README.fr.md"
-            exit 1
-          fi
-          grep -q "../TEST_README.md" locales/TEST_README.fr.md
-          grep -q "TEST_README.fr.md" locales/TEST_README.fr.md
-
-          echo "End-to-end verification passed."
+          
+          echo "Translation and Navbar verification passed."

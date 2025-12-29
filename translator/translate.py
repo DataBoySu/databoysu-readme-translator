@@ -310,17 +310,26 @@ def translate_chunk(text, llm, prompts, lang_guidance=None, is_lone_header=False
     else:
         system_content = base_prompt
 
+    # Aya Expanse Prompt Style
+    # prompt = (
+    #     f"<|START_OF_TURN_TOKEN|><|SYSTEM_TOKEN|>\n{system_content}\n<|END_OF_TURN_TOKEN|>\n"
+    #     f"<|START_OF_TURN_TOKEN|><|USER_TOKEN|>\n{text}<|END_OF_TURN_TOKEN|>\n"
+    #     f"<|START_OF_TURN_TOKEN|><|CHATBOT_TOKEN|>"
+    # )
+
+    # Qwen ChatML Prompt Style
     prompt = (
-        f"<|START_OF_TURN_TOKEN|><|SYSTEM_TOKEN|>\n{system_content}\n<|END_OF_TURN_TOKEN|>\n"
-        f"<|START_OF_TURN_TOKEN|><|USER_TOKEN|>\n{text}<|END_OF_TURN_TOKEN|>\n"
-        f"<|START_OF_TURN_TOKEN|><|CHATBOT_TOKEN|>"
+        f"<|im_start|>system\n{system_content}<|im_end|>\n"
+        f"<|im_start|>user\n{text}<|im_end|>\n"
+        f"<|im_start|>assistant\n"
     )
 
     # Dynamic max_tokens
     estimated_limit = int(len(text) * 3) + 200
     gen_limit = min(4096, max(256, estimated_limit))
 
-    response = llm(prompt, max_tokens=gen_limit, temperature=0, stop=["<|END_OF_TURN_TOKEN|>"])
+    # response = llm(prompt, max_tokens=gen_limit, temperature=0, stop=["<|END_OF_TURN_TOKEN|>"])
+    response = llm(prompt, max_tokens=gen_limit, temperature=0, stop=["<|im_end|>"])
     translated = response['choices'][0]['text'].strip()
 
     # Cleanup markdown fences if the model hallucinated them around the output
@@ -580,7 +589,8 @@ def main(lang, model_path='', nav_target='README.md', mode='translate'):
 
 
     from llama_cpp import Llama
-    mp = model_path or os.path.join(BASE_DIR, 'models', 'aya-expanse-8b-Q4_K_M.gguf')
+    # mp = model_path or os.path.join(BASE_DIR, 'models', 'aya-expanse-8b-Q4_K_M.gguf')
+    mp = model_path or os.path.join(BASE_DIR, 'models', 'Qwen3VL-8B-Instruct-Q4_K_M.gguf')
     llm = Llama(model_path=mp, n_ctx=8192, n_threads=2, verbose=False)
 
     os.makedirs(output_dir, exist_ok=True)
