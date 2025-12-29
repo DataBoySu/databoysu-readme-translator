@@ -266,22 +266,13 @@ def merge_small_chunks(chunks, min_chars=400):
 def translate_chunk(text, llm, prompts, lang_guidance=None, is_lone_header=False):
     """Translate a single chunk using llama-cpp-python."""
     
-    # BASE RULE: If it's a header, use the header prompt.
-    if is_lone_header:
-        system_content = prompts['header']
+    # Select base prompt
+    base_prompt = prompts['header'] if is_lone_header else prompts['prose']
+
+    if lang_guidance:
+        system_content = f"{lang_guidance}\n\n{base_prompt}"
     else:
-        # PROSE RULE: If we have specific guidance, make it the PRIMARY instruction.
-        # We append the "Safety Rules" from the generic prompt to the end.
-        if lang_guidance:
-            system_content = (
-                f"{lang_guidance}\n\n"
-                "UNIVERSAL SAFETY RULES:\n"
-                "1. Output ONLY the translation. No conversational filler.\n"
-                "2. NEVER modify HTML tags (<div...>, <img>), Markdown symbols, or Code Blocks.\n"
-                "3. Keep technical IDs and URLs in English."
-            )
-        else:
-            system_content = prompts['prose']
+        system_content = base_prompt
 
     prompt = (
         f"<|START_OF_TURN_TOKEN|><|SYSTEM_TOKEN|>\n{system_content}\n<|END_OF_TURN_TOKEN|>\n"
