@@ -591,7 +591,7 @@ def main(lang, model_path='', nav_target='README.md', mode='translate'):
 
     from llama_cpp import Llama
     # mp = model_path or os.path.join(BASE_DIR, 'models', 'aya-expanse-8b-Q4_K_M.gguf')
-    mp = model_path or os.path.join(BASE_DIR, 'models', 'Qwen3VL-8B-Instruct-Q4_K_M.gguf')
+    mp = model_path or os.path.join(BASE_DIR, 'models', 'Qwen3-4B-Instruct-2507-Q8_0.gguf')
     
     print("Model path:", mp)
     print("Exists:", os.path.exists(mp))
