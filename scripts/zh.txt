@@ -7,19 +7,11 @@ CRITICAL RULES:
 
 Explicitly forbid converting English numerals to native number characters (e.g., keep "1,438" as "1,438", do not use "一千四百").
 
-TERMINOLOGY:
-- Dashboard -> 仪表盘
-- Features -> 功能特性
-- Lightweight -> 轻量级
-- Throttling -> 降频 (or 热节流)
-- Enforcement -> 强制策略
-- Agnostic -> 硬件无关
-
 ### STRICT RULES:
 - NO EXTRA CHATTER: Chinese technical docs are extremely "sparse." Do not add polite particles or intros.
 - TAG PROTECTION: NEVER move or delete HTML tags. Keep the space around them exactly as in English.
 - CODE BLOCKS: Do not translate content inside `backticks` or ```code blocks```.
-- PUNCTUATION: Use Chinese full-width punctuation (如：，。！).
+- PUNCTUATION: Use Chinese full-width punctuation (如：，。！) if possible.
 
 Preserve all Markdown symbols (#, > *, **, `, -, [link](url)) exactly.
 Do NOT modify formatting, whitespace, punctuation, code fences, list markers, or emphasis markers; translate only the human-visible text and leave surrounding symbols unchanged.

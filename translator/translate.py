@@ -252,14 +252,6 @@ def get_smart_chunks(text):
         if re.search(r'\[![^\]]+\]', p):
             chunks.append(("struct", p))
             continue
-        
-        # Treat Markdown image badges/links as struct (e.g., ![Lines of Code](...)).
-        # Do this before classifying blockquotes as prose so badge lines inside
-        # blockquotes are not misclassified.
-        if re.match(r'!\[.*?\]\(.*?\)', p) or re.match(r'\[.*?\]\(.*?\)', p):
-            chunks.append(("struct", p))
-            continue
-        
 
         if re.match(r'^[-*_]{3,}$', p):
             chunks.append(("struct", p))
@@ -389,7 +381,7 @@ def get_system_prompts(target_lang_name):
         f"Your task: Translate the input into {target_lang_name}.\n"
             "STRICT RULES:\n"
         "- Output ONLY the final translated text. No intros, no 'Here is the translation'.\n"
-        "- Translate human text inside HTML tags (e.g., <summary>Source</summary> -> <summary>Translation</summary>).\n"
+        "- - You may translate visible text between HTML tags, but NEVER modify the tags or their attributes. If unsure, leave HTML content unchanged. (e.g., <summary>Source</summary> -> <summary>Translation</summary>).\n"
         "- NEVER modify HTML tags, attributes (href, src), or CSS styles.\n"
         "- NEVER translate or reformat numbers, units (hrs, mins, sec), or timestamps. Treat them as immutable code.\n"
         "- Keep technical terms (GPU, VRAM, CLI, Docker, GEMM, PIDs, NVLink) in English.\n"
