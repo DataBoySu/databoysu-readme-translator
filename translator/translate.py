@@ -59,43 +59,60 @@ FORBIDDEN = [
     # Spanish
     "Esta sección", "En esta", "En esta sección", "significa", "explica",
     # Japanese
-    "このセクション", "この中で", "このセクションでは", "意味する", "説明する",
+    "このセクション", "この中で", "このセクションでは", "意味する", "説明する", "顔を赤らめる",
     # Russian
     "Этот раздел", "В этом", "В этом разделе", "означает", "объясняет", "ниже",
+
     # Arabic
     "هذا القسم", "في هذا", "في هذا القسم", "يعني", "يشرح",
+
     # Czech
     "Tato sekce", "V tomto", "V této sekci", "znamená", "vysvětluje",
+
     # Dutch
     "Deze sectie", "In dit", "In deze sectie", "betekent", "verklaart",
+
     # Greek
     "Αυτό το τμήμα", "Σε αυτό", "Σε αυτό το τμήμα", "σημαίνει", "εξηγεί",
+
     # Hebrew
     "סעיף זה", "בזה", "בסעיף זה", "משמעותו", "מסביר",
+
     # Indonesian
     "Bagian ini", "Dalam ini", "Di bagian ini", "berarti", "menjelaskan",
+
     # Italian
     "Questa sezione", "In questo", "In questa sezione", "significa", "spiega",
+
     # Persian (Farsi)
     "این بخش", "در این", "در این بخش", "معنی می‌دهد", "توضیح می‌دهد",
+
     # Polish
     "Ta sekcja", "W tym", "W tej sekcji", "oznacza", "wyjaśnia",
+
     # Romanian
     "Această secțiune", "În acest", "În această secțiune", "înseamnă", "explică",
+
     # Turkish
     "Bu bölüm", "Bunda", "Bu bölümde", "anlamına gelir", "açıklar",
+
     # Ukrainian
     "Цей розділ", "У цьому", "У цьому розділі", "означає", "пояснює",
+
     # Vietnamese
     "Phần này", "Trong này", "Trong phần này", "có nghĩa là", "giải thích",
+
     # Traditional Chinese
     "以下", "說明", "本節", "在這裡", "意味著", "解釋",
+    
     # Portuguese
     "Esta seção", "Nesta seção", "significa", "explica",
+    
     # Korean
     "이 섹션", "이 안에서", "이 섹션에서는", "의미한다", "설명한다",
+    
     # Hindi
-    "यह अनुभाग", "इसमें", "इस अनुभाग में", "का अर्थ है", "समझाता है",
+    "यह अनुभाग", "इसमें", "इस अनुभाग में", "का अर्थ है", "समझाता है", "चिड़िया",
 ]
 
 # Language-specific expansion multipliers for length validation
@@ -118,34 +135,27 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # 2. Smart Chunking Functions
 
 def _classify_text_as_struct_or_prose(text):
-    """Classify text chunk as structure (HTML/comments) or prose."""
     t = text.strip()
     if (
         t.startswith(('<div', '<details', '```')) or
         t.startswith('<!--') or t.endswith('-->') or
-        # Strict check: Chunk must be ONLY images/links (no prose text)
-        re.fullmatch(r'(?:\s*(?:!\[.*?\]\(.*?\)|\[.*?\]\(.*?\))\s*)+', t, flags=re.DOTALL)
+        re.match(r'!\[.*?\]\(.*?\)', t) or
+        re.match(r'\[.*?\]\(.*?\)', t) or
+        re.search(r'\[![^\]]+\]', t)
     ):
         return 'struct'
     return 'prose'
 
 
+
 def split_struct_blockquotes(chunks):
-    """Split any `struct` chunk that contains a markdown blockquote into
-    a `struct` part before the quote, a `prose` blockquote part, and an
-    optional tail (struct/prose) after. This handles cases where placeholders
-    like <!-- HTML_BLOCK --> are adjacent to a quoted one-line description.
-    """
     out = []
     for ctype, ctext in chunks:
         if ctype != 'struct' or not re.search(r'^\s*>', ctext, flags=re.MULTILINE):
             out.append((ctype, ctext))
             continue
 
-        # Work with original lines to preserve spacing
         lines = ctext.splitlines(True)
-
-        # find first line that starts with '>' (block quote)
         start = None
         for idx, line in enumerate(lines):
             if line.lstrip().startswith('>'):
@@ -156,20 +166,16 @@ def split_struct_blockquotes(chunks):
             out.append((ctype, ctext))
             continue
 
-        # find end of contiguous blockquote region, include adjacent blank lines
         end = start
         while end + 1 < len(lines):
             nxt = lines[end + 1]
             if nxt.lstrip().startswith('>'):
                 end += 1
                 continue
-            # include a single blank line immediately after blockquote
             if nxt.strip() == '':
-                # only include if followed by another blockquote line
                 if end + 2 < len(lines) and lines[end + 2].lstrip().startswith('>'):
                     end += 1
                     continue
-                # otherwise, treat blank as separator and stop
                 break
             break
 
@@ -177,23 +183,29 @@ def split_struct_blockquotes(chunks):
         block = ''.join(lines[start:end+1]).strip()
         after = ''.join(lines[end+1:]).strip()
 
+        first_bq_line = lines[start].lstrip()
+        is_admonition_bq = bool(re.match(r'>\s*\[![^\]]+\]', first_bq_line)) or bool(re.search(r'\[![^\]]+\]', block))
+
         if before:
             out.append(('struct', before))
-        out.append(('prose', block))
+        if is_admonition_bq:
+            out.append(('struct', block))
+        else:
+            out.append(('prose', block))
         if after:
             out.append((_classify_text_as_struct_or_prose(after), after))
 
     return out
 
+
+
+
+
 def get_smart_chunks(text):
-    """Split text into smart chunks based on markdown/html patterns."""
     pattern = r'(' \
               r'```[\s\S]*?```|' \
               r'<div\b[^>]*>[\s\S]*?<\/div>|' \
               r'<details\b[^>]*>[\s\S]*?<\/details>|' \
-              r'<section\b[^>]*>[\s\S]*?<\/section>|' \
-              r'<table\b[^>]*>[\s\S]*?<\/table>|' \
-              r'^\s*(?:[!\[].*?\]\(.*?\)\s*)+$|' \
               r'^#{1,6} .*' \
               r')'
 
@@ -203,37 +215,41 @@ def get_smart_chunks(text):
     for part in raw_parts:
         if not part or not part.strip():
             continue
-        
-        stripped_part = part.strip()
 
-        # Treat blockquotes as prose
-        if stripped_part.startswith('>'):
-            chunks.append(("prose", stripped_part))
+        p = part.strip()
+
+        if re.search(r'\[![^\]]+\]', p):
+            chunks.append(("struct", p))
+            continue
+
+        if p.startswith('>') or p.startswith('*') or p.endswith('*') or p.startswith('> *') or p.startswith(' *'):
+            chunks.append(("prose", p))
             continue
 
         if (
-            stripped_part.startswith(('<div', '<details', '<section', '<table', '```')) or
-            stripped_part.startswith('<!--') or stripped_part.endswith('-->') or
-            re.match(r'!\[.*?\]\(.*?\)', stripped_part) or
-            re.match(r'\[.*?\]\(.*?\)', stripped_part)
+            p.startswith(('<div', '<details', '```')) or
+            p.startswith('<!--') or p.endswith('-->') or
+            re.match(r'!\[.*?\]\(.*?\)', p) or
+            re.match(r'\[.*?\]\(.*?\)', p)
         ):
-            chunks.append(("struct", stripped_part))
+            chunks.append(("struct", p))
         else:
-            chunks.append(("prose", stripped_part))
+            chunks.append(("prose", p))
 
-    return chunks
+    try:
+        return split_struct_blockquotes(chunks)
+    except NameError:
+        return chunks
 
 
-def merge_small_chunks(chunks, min_chars=50):
-    """Merge small prose chunks to prevent fragmentation."""
+
+def merge_small_chunks(chunks, min_chars=400):
     merged = []
     i = 0
     while i < len(chunks):
         ctype, ctext = chunks[i]
 
-        # Check if chunk is too small or is a header, and merge with next if possible
-        is_small = len(ctext) < min_chars
-        if ctype == "prose" and (ctext.startswith('#') or is_small) and i + 1 < len(chunks):
+        if ctype == "prose" and (ctext.startswith('#') or len(ctext) < 50) and i + 1 < len(chunks):
             next_ctype, next_ctext = chunks[i+1]
             combined_text = ctext + "\n\n" + next_ctext
             new_type = "hybrid" if next_ctype == "struct" else "prose"
@@ -243,6 +259,7 @@ def merge_small_chunks(chunks, min_chars=50):
             merged.append((ctype, ctext))
             i += 1
     return merged
+
 
 
 # 3. Prompts
@@ -323,32 +340,27 @@ def inject_navbar(readme_text, langs):
 def get_system_prompts(target_lang_name):
     """Generate system prompts for the target language."""
     header = (
-        f"You are a technical translation filter for {target_lang_name}.\n"
+    f"You are a technical translation filter for {target_lang_name}.\n"
         "STRICT RULES:\n"
         "- The input is a single section header. Translate it 1:1.\n"
         "- DO NOT generate any content, lists, or descriptions under the header.\n"
         "- Preserve the '#' symbols exactly.\n"
         "- Output ONLY the translated header.\n"
-        "- Preserve original formatting, punctuation, whitespace, and markdown/code symbols exactly;"
-        " do NOT normalize, reflow, or 'fix' the input."
+        "- Preserve original formatting, punctuation, whitespace, and markdown/code symbols exactly; do NOT normalize, reflow, or 'fix' the input."
     )
 
     prose = (
-        f"You are a professional technical translation engine. "
+        f"You are a professional technical {target_lang_name} translation engine. "
         f"Your task: Translate the input into {target_lang_name}.\n"
         "STRICT RULES:\n"
-        "- Output ONLY the final translated text. No intros.\n"
+        "- Output ONLY the final translated text. No intros, no 'Here is the translation'.\n"
+        "- Translate human text inside HTML tags (e.g., <summary>Source</summary> -> <summary>Translation</summary>).\n"
         "- NEVER modify HTML tags, attributes (href, src), or CSS styles.\n"
-        "- Keep technical terms in English.\n"
-        "- Preserve all Markdown symbols (#, **, `, -, link) exactly.\n"
-        "- Do NOT translate GitHub Flavored Markdown alerts (e.g., '> [!NOTE]', '> [!IMPORTANT]').\n"
-        "- Do NOT translate badge/shield alt text or URLs.\n"
-        "- Do NOT modify formatting, whitespace, punctuation, code fences, list markers, "
-        "or emphasis markers; translate only the human-visible text.\n"
-        "- Markdown Admonitions: NEVER translate the keyword inside > [!KEYWORD]. Valid keywords are: NOTE, TIP, IMPORTANT, WARNING, CAUTION.\n"
-        "- Static Badges: Do not translate text inside image URLs (e.g., img.shields.io) unless it is the alt text.\n"
-        "- Emoji Integrity: Ensure emojis remain attached to their correct logical counterparts."
-
+        "- NEVER translate or reformat numbers, units (hrs, mins, sec), or timestamps. Treat them as immutable code.\n"
+        "- Keep technical terms (GPU, VRAM, CLI, Docker, GEMM, PIDs, NVLink) in English.\n"
+        "- Preserve all Markdown symbols (#, > *, **, `, -, [link](url)) exactly.\n"
+        "- Do NOT modify formatting, whitespace, punctuation, code fences, list markers, or emphasis markers; translate only the human-visible text and leave surrounding symbols unchanged.\n"
+        "- Preserve original formatting, punctuation, whitespace, and markdown/code symbols exactly; do NOT normalize, reflow, or 'fix' the input."
     )
     return header, prose
 
@@ -535,9 +547,7 @@ def main(lang, model_path='', nav_target='README.md', mode='translate'):
 
     output_path = os.path.join(output_dir, f"README.{lang}.md")
 
-    # Initialize LLM here to avoid import-time side-effects
-    # pylint: disable=line-too-long
-    # pylint: disable=import-error
+
     from llama_cpp import Llama
     mp = model_path or os.path.join(BASE_DIR, 'models', 'aya-expanse-8b-Q4_K_M.gguf')
     llm = Llama(model_path=mp, n_ctx=8192, n_threads=2, verbose=False)
