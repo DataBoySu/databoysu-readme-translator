@@ -1,4 +1,3 @@
-ROLE: Senior Ukrainian DevOps.
 TERMINOLOGY:
 - Throttling: Термальний тротлінг
 - Enforcement: Примусове обмеження

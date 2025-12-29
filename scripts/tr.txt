@@ -1,4 +1,3 @@
-ROLE: Turkish Software Engineer.
 TERMINOLOGY:
 - Throttling: Isıl kısıtlama (Throttling)
 - Enforcement: Limit Uygulama

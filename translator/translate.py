@@ -12,6 +12,7 @@ LANG_MAP = {
     "de": "German", "fr": "French", "es": "Spanish", "ja": "Japanese",
     "zh": "Chinese(Simplified)", 
     "ru": "Russian", "pt": "Portuguese", "ko": "Korean", "hi": "Hindi",
+    # not fully checked
     "ar": "Arabic", "cs": "Czech", "nl": "Dutch", "en": "English",
     "el": "Greek", "he": "Hebrew", "id": "Indonesian", "it": "Italian",
     "fa": "Persian", "pl": "Polish", "ro": "Romanian", "tr": "Turkish",
@@ -99,14 +100,17 @@ FORBIDDEN = [
 
 # Language-specific expansion multipliers for length validation
 HIGH_MULTIPLIER_MAP = {
-    "ja": 5.5,  # Japanese can expand significantly
-    "hi": 5.5,  # Hindi often requires more tokens
-    "ar": 4.0,  # Arabic expands moderately
-    "he": 4.0,  # Hebrew
-    "fa": 4.0,  # Persian (Farsi)
-    "ru": 3.5,  # Russian
-    "uk": 3.5,  # Ukrainian
-    "pl": 3.5,  # Polish
+    "ja": 5.5,
+    "hi": 5.5,
+    "ar": 4.0,
+    "he": 4.0,
+    "fa": 4.0,
+    "ru": 3.5,
+    "uk": 3.5,
+    "pl": 3.5,
+    "de": 3.0, # Added German (Compound nouns are long)
+    "fr": 2.5, # Added French
+    "es": 2.5, # Added Spanish
 }
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -244,31 +248,42 @@ def merge_small_chunks(chunks, min_chars=50):
 # 3. Prompts
 def translate_chunk(text, llm, prompts, lang_guidance=None, is_lone_header=False):
     """Translate a single chunk using llama-cpp-python."""
-    current_system_prompt = prompts['header'] if is_lone_header else prompts['prose']
-    if lang_guidance and not is_lone_header:
-        current_system_prompt = f"{prompts['prose']}\n\nADDITIONAL GUIDANCE:\n{lang_guidance}"
+    
+    # BASE RULE: If it's a header, use the header prompt.
+    if is_lone_header:
+        system_content = prompts['header']
+    else:
+        # PROSE RULE: If we have specific guidance, make it the PRIMARY instruction.
+        # We append the "Safety Rules" from the generic prompt to the end.
+        if lang_guidance:
+            system_content = (
+                f"{lang_guidance}\n\n"
+                "UNIVERSAL SAFETY RULES:\n"
+                "1. Output ONLY the translation. No conversational filler.\n"
+                "2. NEVER modify HTML tags (<div...>, <img>), Markdown symbols, or Code Blocks.\n"
+                "3. Keep technical IDs and URLs in English."
+            )
+        else:
+            system_content = prompts['prose']
 
     prompt = (
-        f"<|START_OF_TURN_TOKEN|><|SYSTEM_TOKEN|>\n{current_system_prompt}\n<|END_OF_TURN_TOKEN|>\n"
+        f"<|START_OF_TURN_TOKEN|><|SYSTEM_TOKEN|>\n{system_content}\n<|END_OF_TURN_TOKEN|>\n"
         f"<|START_OF_TURN_TOKEN|><|USER_TOKEN|>\n{text}<|END_OF_TURN_TOKEN|>\n"
-        "<|START_OF_TURN_TOKEN|><|CHATBOT_TOKEN|>"
+        f"<|START_OF_TURN_TOKEN|><|CHATBOT_TOKEN|>"
     )
 
-    # Dynamic max_tokens to prevent infinite loops on small inputs
-    # Estimate: 3 tokens per char upper bound, min 256, max 4096
+    # Dynamic max_tokens
     estimated_limit = int(len(text) * 3) + 200
     gen_limit = min(4096, max(256, estimated_limit))
 
     response = llm(prompt, max_tokens=gen_limit, temperature=0, stop=["<|END_OF_TURN_TOKEN|>"])
     translated = response['choices'][0]['text'].strip()
 
-    if translated.startswith("```"):
+    # Cleanup markdown fences if the model hallucinated them around the output
+    if translated.startswith("```") and translated.endswith("```"):
         lines = translated.splitlines()
-        if lines[0].startswith("```"):
-            lines = lines[1:]
-        if lines and lines[-1].strip().startswith("```"):
-            lines = lines[:-1]
-        translated = "\n".join(lines).strip()
+        if len(lines) > 2:
+            translated = "\n".join(lines[1:-1]).strip()
 
     return translated
 
@@ -351,7 +366,7 @@ def load_guidance(lang):
 def process_chunks(chunks, llm, lang, prompts, lang_guidance):
     """Translate chunks and return joined text."""
     final_output = []
-    multiplier = HIGH_MULTIPLIER_MAP.get(lang, 2.5)
+    multiplier = HIGH_MULTIPLIER_MAP.get(lang, 2.0) # Default to 2.0x expansion allowed
 
     total_chunks = len(chunks)
     print(f"[INFO] Processing {total_chunks} chunks for language '{lang}'...", flush=True)
@@ -361,15 +376,35 @@ def process_chunks(chunks, llm, lang, prompts, lang_guidance):
             final_output.append(ctext + '\n\n')
             continue
 
+        # Skip empty chunks
+        if not ctext.strip():
+            continue
+
         print(f"[INFO] Translating chunk {i+1}/{total_chunks} ({len(ctext)} chars)...", flush=True)
         is_lone_header = ctext.strip().startswith('#') and '\n' not in ctext.strip()
+        
         translated = translate_chunk(
             ctext, llm, prompts, lang_guidance, is_lone_header
         )
 
-        if len(translated) > multiplier * len(ctext) or any(f in translated for f in FORBIDDEN):
-            print(f"[WARN] Chunk {i+1} failed validation, using original text", flush=True)
+        # Validation 1: Length check (Hallucination loop detection)
+        if len(translated) > multiplier * len(ctext):
+            print(f"[WARN] Chunk {i+1} failed length validation (Too long), reverting.", flush=True)
             translated = ctext
+        
+        # Validation 2: Forbidden phrases (Chatter detection)
+        elif any(f in translated for f in FORBIDDEN):
+            print(f"[WARN] Chunk {i+1} contained forbidden phrase, reverting.", flush=True)
+            translated = ctext
+        
+        # Validation 3: Critical HTML Tag Loss (New)
+        # If input had a closing div/details, output must have it too.
+        if "</div>" in ctext and "</div>" not in translated:
+             print(f"[WARN] Chunk {i+1} lost critical HTML tags, reverting.", flush=True)
+             translated = ctext
+        if "</details>" in ctext and "</details>" not in translated:
+             print(f"[WARN] Chunk {i+1} lost critical HTML tags, reverting.", flush=True)
+             translated = ctext
 
         final_output.append(translated.rstrip() + '\n\n')
 

@@ -1,5 +1,6 @@
-ROLE: Senior Software Engineer (Taiwan/HK).
 STYLE: Traditional Characters, Professional.
+
+Explicitly forbid converting English numerals to native number characters (e.g., keep "1,438" as "1,438", do not use "一千四百").
 
 TERMINOLOGY:
 - Dashboard: 儀表板 (Yíbiǎobǎn)

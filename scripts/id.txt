@@ -1,4 +1,3 @@
-ROLE: Indonesian Tech Lead.
 STYLE: Professional Indonesian (Baku).
 
 TERMINOLOGY:

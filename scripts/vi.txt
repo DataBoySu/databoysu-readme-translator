@@ -1,4 +1,3 @@
-ROLE: Vietnamese Software Engineer.
 STYLE: Formal and precise. Vietnamese words are long; allow for text expansion.
 
 TERMINOLOGY:

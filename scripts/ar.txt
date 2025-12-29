@@ -1,4 +1,3 @@
-ROLE: Senior Software Engineer (Arabic).
 STYLE: Modern, Professional Tech Arabic.
 CRITICAL: DO NOT REVERSE HTML TAGS. Even though Arabic is RTL, the <div> structure and CSS attributes must remain in the English order.
 
