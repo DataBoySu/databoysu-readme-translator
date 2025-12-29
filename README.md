@@ -110,7 +110,11 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          ref: ${{ github.head_ref || github.ref_name }}
           token: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}
+
+      - name: Pull latest changes
+        run: git pull origin ${{ github.head_ref || github.ref_name }} --rebase
 
       - name: Download Translations
         uses: actions/download-artifact@v4

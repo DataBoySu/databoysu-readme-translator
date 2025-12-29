@@ -104,13 +104,13 @@ FORBIDDEN = [
 
     # Traditional Chinese
     "以下", "說明", "本節", "在這裡", "意味著", "解釋",
-    
+
     # Portuguese
     "Esta seção", "Nesta seção", "significa", "explica",
-    
+
     # Korean
     "이 섹션", "이 안에서", "이 섹션에서는", "의미한다", "설명한다",
-    
+
     # Hindi
     "यह अनुभाग", "इसमें", "इस अनुभाग में", "का अर्थ है", "समझाता है", "चिड़िया",
 ]
@@ -200,8 +200,21 @@ def split_struct_blockquotes(chunks):
         # like `[!NOTE]` or a localized variant (e.g., `[!WICHTIG]`),
         # treat the entire blockquote as `struct` so it is preserved
         # and not converted to a `prose` block for translation.
+        
         first_bq_line = lines[start].lstrip()
-        is_admonition_bq = bool(re.match(r'>\s*\[![^\]]+\]', first_bq_line)) or bool(re.search(r'\[![^\]]+\]', block))
+        
+        # is_admonition_bq = bool(re.match(r'>\s*\[![^\]]+\]', first_bq_line)) or bool(re.search(r'\[![^\]]+\]', block))
+
+        # Check for admonition in the first blockquote line, e.g.:
+        #   > [!NOTE] Something
+        admonition_pattern = r'>\s*\[![^\]]+\]'
+        admonition_in_first_line = bool(re.match(admonition_pattern, first_bq_line))
+
+        # Also check for the admonition token anywhere inside the block
+        # (covers cases where the token might appear on an inner line)
+        admonition_in_block = bool(re.search(r'\[![^\]]+\]', block))
+
+        is_admonition_bq = admonition_in_first_line or admonition_in_block
 
         if before:
             out.append(('struct', before))
@@ -215,9 +228,6 @@ def split_struct_blockquotes(chunks):
             out.append((_classify_text_as_struct_or_prose(after), after))
 
     return out
-
-
-
 
 
 def get_smart_chunks(text):
@@ -270,13 +280,12 @@ def get_smart_chunks(text):
 
 
 
-def merge_small_chunks(chunks, min_chars=400):
+def merge_small_chunks(chunks, min_chars=50):
     merged = []
     i = 0
     while i < len(chunks):
         ctype, ctext = chunks[i]
-        
-        if ctype == "prose" and (ctext.startswith('#') or len(ctext) < 50) and i + 1 < len(chunks) and chunks[i+1][0] != "struct":
+        if ctype == "prose" and (ctext.startswith('#') or len(ctext) < min_chars) and i + 1 < len(chunks) and chunks[i+1][0] != "struct":
             next_ctype, next_ctext = chunks[i+1]
             combined_text = ctext + "\n\n" + next_ctext
             
