@@ -396,7 +396,7 @@ def load_guidance(lang):
 def process_chunks(chunks, llm, lang, prompts, lang_guidance):
     """Translate chunks and return joined text."""
     final_output = []
-    multiplier = HIGH_MULTIPLIER_MAP.get(lang, 2.0) # Default to 2.0x expansion allowed
+    multiplier = HIGH_MULTIPLIER_MAP.get(lang, 2.5) # Default to 2.0x expansion allowed
 
     total_chunks = len(chunks)
     print(f"[INFO] Processing {total_chunks} chunks for language '{lang}'...", flush=True)
