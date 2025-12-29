@@ -588,9 +588,15 @@ def main(lang, model_path='', nav_target='README.md', mode='translate'):
     output_path = os.path.join(output_dir, f"README.{lang}.md")
 
 
+
     from llama_cpp import Llama
     # mp = model_path or os.path.join(BASE_DIR, 'models', 'aya-expanse-8b-Q4_K_M.gguf')
     mp = model_path or os.path.join(BASE_DIR, 'models', 'Qwen3VL-8B-Instruct-Q4_K_M.gguf')
+    
+    print("Model path:", mp)
+    print("Exists:", os.path.exists(mp))
+    print("Size:", os.path.getsize(mp) if os.path.exists(mp) else "N/A")
+    
     llm = Llama(model_path=mp, n_ctx=8192, n_threads=2, verbose=False)
 
     os.makedirs(output_dir, exist_ok=True)
