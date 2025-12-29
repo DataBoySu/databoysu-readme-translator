@@ -34,8 +34,6 @@ jobs:
       - name: Lint Entrypoint
         run: |
           # Install shellcheck for CI linting
-          sudo apt-get update -y
-          sudo apt-get install -y shellcheck
           shellcheck entrypoint.sh
 
       - name: Create Dummy README
