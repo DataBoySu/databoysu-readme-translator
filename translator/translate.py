@@ -252,6 +252,14 @@ def get_smart_chunks(text):
         if re.search(r'\[![^\]]+\]', p):
             chunks.append(("struct", p))
             continue
+        
+        # Treat Markdown image badges/links as struct (e.g., ![Lines of Code](...)).
+        # Do this before classifying blockquotes as prose so badge lines inside
+        # blockquotes are not misclassified.
+        if re.match(r'!\[.*?\]\(.*?\)', p) or re.match(r'\[.*?\]\(.*?\)', p):
+            chunks.append(("struct", p))
+            continue
+        
 
         if re.match(r'^[-*_]{3,}$', p):
             chunks.append(("struct", p))
@@ -388,6 +396,10 @@ def get_system_prompts(target_lang_name):
         "- Preserve all Markdown symbols (#, > *, **, `, -, [link](url)) exactly.\n"
         "- Do NOT modify formatting, whitespace, punctuation, code fences, list markers, or emphasis markers; translate only the human-visible text and leave surrounding symbols unchanged.\n"
         "- Preserve original formatting, punctuation, whitespace, and markdown/code symbols exactly; do NOT normalize, reflow, or 'fix' the input."
+        "ADDITIONAL GUIDANCE FOR BADGES/HYBRIDS:\n"
+                "- Do NOT translate or modify markdown image links/badges of the form ![alt](url).\n"
+                "- Do NOT translate or modify bracketed admonition tokens like [!NOTE] or [!IMPORTANT].\n"
+                "- Preserve these tokens exactly including punctuation, spacing, case, and brackets."        
     )
     return header, prose
 
