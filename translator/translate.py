@@ -280,7 +280,7 @@ def get_smart_chunks(text):
 
 
 
-def merge_small_chunks(chunks, min_chars=50):
+def merge_small_chunks(chunks, min_chars=20):
     merged = []
     i = 0
     while i < len(chunks):
