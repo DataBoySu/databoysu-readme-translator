@@ -1,10 +1,11 @@
 name: CI
 
 on:
+ on:
   push:
-    branches: [ main ]
+    branches: [ main, master ]
   pull_request:
-    branches: [ main ]
+    branches: [ main, master ]
   workflow_dispatch:
 
 jobs:
@@ -32,7 +33,11 @@ jobs:
           python -m py_compile translator/translate.py
 
       - name: Lint Entrypoint
-        run: shellcheck entrypoint.sh
+        run: |
+          # Install shellcheck for CI linting
+          sudo apt-get update -y
+          sudo apt-get install -y shellcheck
+          shellcheck entrypoint.sh
 
       - name: Create Dummy README
         run: |
