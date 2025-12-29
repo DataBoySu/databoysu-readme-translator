@@ -138,6 +138,7 @@ def _classify_text_as_struct_or_prose(text):
     t = text.strip()
     if (
         t.startswith(('<div', '<details', '```')) or
+        (t.startswith('<p') and not re.sub(r'<[^>]+>', '', t).strip()) or
         t.startswith('<!--') or t.endswith('-->') or
         re.match(r'!\[.*?\]\(.*?\)', t) or
         re.match(r'\[.*?\]\(.*?\)', t) or
@@ -149,13 +150,21 @@ def _classify_text_as_struct_or_prose(text):
 
 
 def split_struct_blockquotes(chunks):
+    """Split any `struct` chunk that contains a markdown blockquote into
+    a `struct` part before the quote, a `prose` blockquote part, and an
+    optional tail (struct/prose) after. This handles cases where placeholders
+    like <!-- HTML_BLOCK --> are adjacent to a quoted one-line description.
+    """
     out = []
     for ctype, ctext in chunks:
         if ctype != 'struct' or not re.search(r'^\s*>', ctext, flags=re.MULTILINE):
             out.append((ctype, ctext))
             continue
 
+        # Work with original lines to preserve spacing
         lines = ctext.splitlines(True)
+
+        # find first line that starts with '>' (block quote)
         start = None
         for idx, line in enumerate(lines):
             if line.lstrip().startswith('>'):
@@ -166,16 +175,20 @@ def split_struct_blockquotes(chunks):
             out.append((ctype, ctext))
             continue
 
+        # find end of contiguous blockquote region, include adjacent blank lines
         end = start
         while end + 1 < len(lines):
             nxt = lines[end + 1]
             if nxt.lstrip().startswith('>'):
                 end += 1
                 continue
+            # include a single blank line immediately after blockquote
             if nxt.strip() == '':
+                # only include if followed by another blockquote line
                 if end + 2 < len(lines) and lines[end + 2].lstrip().startswith('>'):
                     end += 1
                     continue
+                # otherwise, treat blank as separator and stop
                 break
             break
 
@@ -183,15 +196,21 @@ def split_struct_blockquotes(chunks):
         block = ''.join(lines[start:end+1]).strip()
         after = ''.join(lines[end+1:]).strip()
 
+        # If the blockquote begins with a GitHub-style admonition token
+        # like `[!NOTE]` or a localized variant (e.g., `[!WICHTIG]`),
+        # treat the entire blockquote as `struct` so it is preserved
+        # and not converted to a `prose` block for translation.
         first_bq_line = lines[start].lstrip()
         is_admonition_bq = bool(re.match(r'>\s*\[![^\]]+\]', first_bq_line)) or bool(re.search(r'\[![^\]]+\]', block))
 
         if before:
             out.append(('struct', before))
+
         if is_admonition_bq:
             out.append(('struct', block))
         else:
             out.append(('prose', block))
+
         if after:
             out.append((_classify_text_as_struct_or_prose(after), after))
 
@@ -205,6 +224,7 @@ def get_smart_chunks(text):
     pattern = r'(' \
               r'```[\s\S]*?```|' \
               r'<div\b[^>]*>[\s\S]*?<\/div>|' \
+              r'<p\b[^>]*>[\s\S]*?<\/p>|' \
               r'<details\b[^>]*>[\s\S]*?<\/details>|' \
               r'^#{1,6} .*' \
               r')'
@@ -218,16 +238,22 @@ def get_smart_chunks(text):
 
         p = part.strip()
 
+        # Treat GitHub-style admonition tokens like [!NOTE], [!IMPORTANT] as struct
         if re.search(r'\[![^\]]+\]', p):
+            chunks.append(("struct", p))
+            continue
+
+        if re.match(r'^[-*_]{3,}$', p):
             chunks.append(("struct", p))
             continue
 
         if p.startswith('>') or p.startswith('*') or p.endswith('*') or p.startswith('> *') or p.startswith(' *'):
             chunks.append(("prose", p))
             continue
-
+        
         if (
             p.startswith(('<div', '<details', '```')) or
+            (p.startswith('<p') and not re.sub(r'<[^>]+>', '', p).strip()) or
             p.startswith('<!--') or p.endswith('-->') or
             re.match(r'!\[.*?\]\(.*?\)', p) or
             re.match(r'\[.*?\]\(.*?\)', p)
@@ -236,6 +262,7 @@ def get_smart_chunks(text):
         else:
             chunks.append(("prose", p))
 
+        # Ensure any struct chunks containing blockquotes are split
     try:
         return split_struct_blockquotes(chunks)
     except NameError:
@@ -248,13 +275,13 @@ def merge_small_chunks(chunks, min_chars=400):
     i = 0
     while i < len(chunks):
         ctype, ctext = chunks[i]
-
-        if ctype == "prose" and (ctext.startswith('#') or len(ctext) < 50) and i + 1 < len(chunks):
+        
+        if ctype == "prose" and (ctext.startswith('#') or len(ctext) < 50) and i + 1 < len(chunks) and chunks[i+1][0] != "struct":
             next_ctype, next_ctext = chunks[i+1]
             combined_text = ctext + "\n\n" + next_ctext
-            new_type = "hybrid" if next_ctype == "struct" else "prose"
-            merged.append((new_type, combined_text))
-            i += 2
+            
+            merged.append(("prose", combined_text))
+            i += 2 
         else:
             merged.append((ctype, ctext))
             i += 1
@@ -343,7 +370,7 @@ def get_system_prompts(target_lang_name):
     prose = (
         f"You are a professional technical {target_lang_name} translation engine. "
         f"Your task: Translate the input into {target_lang_name}.\n"
-        "STRICT RULES:\n"
+            "STRICT RULES:\n"
         "- Output ONLY the final translated text. No intros, no 'Here is the translation'.\n"
         "- Translate human text inside HTML tags (e.g., <summary>Source</summary> -> <summary>Translation</summary>).\n"
         "- NEVER modify HTML tags, attributes (href, src), or CSS styles.\n"
@@ -565,6 +592,7 @@ if __name__ == '__main__':
     parser.add_argument("--nav-target", type=str, default="README.md")
     parser.add_argument("--mode", type=str, default="translate")
     args = parser.parse_args()
+
 
     if args.mode == "translate" and not args.lang:
         parser.error("the following arguments are required: --lang")
