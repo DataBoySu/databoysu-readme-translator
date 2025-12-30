@@ -1,3 +1,5 @@
+<p align="center">
+
 # DataBoySu's Readme Translator
 
 ![GitHub Release](https://img.shields.io/github/v/release/DataBoySu/databoysu-readme-translator?style=for-the-badge&color=0366d6&logo=github)
@@ -5,14 +7,16 @@
 ![Python Version](https://img.shields.io/badge/Python-3.10%2B-blue?style=for-the-badge&logo=python&logoColor=white)
 ![License](https://img.shields.io/badge/License-AGPL_3.0-purple?style=for-the-badge)
 
-This Readme Translator is a composite GitHub Action that translates a repository README and appends/updates a language navigation bar at the top of the README.
+</p>
 
-This action runs entirely on the GitHub Runner, ensuring your data stays within the execution environment.
+This Readme Translator is a composite GitHub Action that translates a repository README and injects a language navigation bar at the top of the README.
+
+This action runs entirely on the GitHub Runner, ensuring 100% Privacy focused and deterministic translation.
 
 ## Features
 
 - Translate README into a target language using a local GGUF model (via `llama-cpp-python`).
-- Inject or update a navbar section delimited by
+- Injects and updates a navbar section in your REDADME delimited by
 
 ```
  <!--START_SECTION:navbar--> 
@@ -20,13 +24,42 @@ This action runs entirely on the GitHub Runner, ensuring your data stays within 
  <!--END_SECTION:navbar-->
 ```
 
--- Automatic regeneration of the runner cache when missing.
+- Uses multi-step validation approach to prevent format breaks, hallucinations, etc.
+- Supports 20+ languages.
+- Automatic caching of the model weights and parallel execution of translation jobs for sped up translations.
+
+---
+
+> [!IMPORTANT] \
+> This translation tool is primarily meant for **public repositories** \
+> It relies on the public instances of GitHub Action Runners to run \
+>
+> While private repo owners can also run this pipeline, they should be aware that \
+> an average multi-language job takes 40 minutes to run \
+>
+> it is recommended for everyone to use the example workflow given below \
+> to parallely spin up multiple jobs and translate everything in one go
+
+---
 
 ## Translation Quality & Disclaimer
 
-This action acts as a powerful **helper tool** designed to take your documentation **95% of the way** towards full localization. It utilizes a context-aware AI model optimized for technical content, ensuring that code blocks, HTML tags, and industry jargon are preserved.
+This action acts as a pretty powerful **helper tool** designed to take your documentation **90-95% of the way** towards full localization.
 
-While the quality is high, **manual review is required for the final 5%**. You may encounter occasional grammatical imperfections or untranslated segments if the model encounters ambiguous context. The repository owner is responsible for the final polish and verification of the translated content.
+It utilizes a context-aware AI model structurally optimized for technical content, ensuring that code blocks, tags, and jargon is preserved.
+
+As a fail-safe, I have implemented complex post-processing which reverts document chunk back to original language(English) if it detects my set rule violations.
+
+While the quality is high, **manual review is required for the final 5%**.
+
+> [!NOTE] \
+> This pipeline was <strong> not made to replace human documentation localizers </strong> \
+> but to provide them a <strong> ready-made template </strong> \
+> to style/improve the tone and wordings as they prefer, instead of having to make such translations from scratch.
+
+From Beginners starting out GitHub to experienced maintainers looking to create new projects, and want to whip up a quick multi-lingual readme can use this tool for one-click setup without any hassle.
+
+
 
 ## Supported Languages
 
