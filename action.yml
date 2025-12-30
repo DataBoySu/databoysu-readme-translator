@@ -16,7 +16,7 @@ inputs:
   model_url:
     description: 'URL to download the GGUF model'
     # default: 'https://huggingface.co/lmstudio-community/aya-expanse-8b-GGUF/resolve/main/aya-expanse-8b-Q4_K_M.gguf'
-    default: 'https://huggingface.co/lmstudio-community/Qwen3-4B-Instruct-2507-GGUF/resolve/main/Qwen3-4B-Instruct-2507-Q8_0.gguf'
+    default: 'https://huggingface.co/lmstudio-community/Qwen3-14B-GGUF/resolve/main/Qwen3-14B-Q4_K_M.gguf'
     required: false
   model_cache_path:
     description: 'Path to cache the model (internal)'
@@ -41,7 +41,7 @@ runs:
       with:
         path: ${{ github.workspace }}/${{ inputs.model_cache_path }}
         # key: translator-model-aya-expanse-8b-v1
-        key: translator-model-qwen3-4b-instruct-2507-v1
+        key: translator-model-qwen3-14b-q4km-v1
 
     - name: Run Entrypoint
       shell: bash

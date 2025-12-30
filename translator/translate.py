@@ -320,7 +320,7 @@ def translate_chunk(text, llm, prompts, lang_guidance=None, is_lone_header=False
     # Qwen ChatML Prompt Style
     prompt = (
         f"<|im_start|>system\n{system_content}<|im_end|>\n"
-        f"<|im_start|>user\n{text}<|im_end|>\n"
+        f"<|im_start|>user\n{text} /no_think<|im_end|>\n"
         f"<|im_start|>assistant\n"
     )
 
@@ -331,6 +331,9 @@ def translate_chunk(text, llm, prompts, lang_guidance=None, is_lone_header=False
     # response = llm(prompt, max_tokens=gen_limit, temperature=0, stop=["<|END_OF_TURN_TOKEN|>"])
     response = llm(prompt, max_tokens=gen_limit, temperature=0, stop=["<|im_end|>"])
     translated = response['choices'][0]['text'].strip()
+    
+    # Safety: Remove <think>...</think> blocks if the model ignores /no_think
+    translated = re.sub(r'<think>.*?</think>', '', translated, flags=re.DOTALL).strip()
 
     # Cleanup markdown fences if the model hallucinated them around the output
     if translated.startswith("```") and translated.endswith("```"):
@@ -587,11 +590,10 @@ def main(lang, model_path='', nav_target='README.md', mode='translate'):
 
     output_path = os.path.join(output_dir, f"README.{lang}.md")
 
-
-
     from llama_cpp import Llama
+    
     # mp = model_path or os.path.join(BASE_DIR, 'models', 'aya-expanse-8b-Q4_K_M.gguf')
-    mp = model_path or os.path.join(BASE_DIR, 'models', 'Qwen3-4B-Instruct-2507-Q8_0.gguf')
+    mp = model_path or os.path.join(BASE_DIR, 'models', 'Qwen3-14B-Q4_K_M.gguf')
     
     print("Model path:", mp)
     print("Exists:", os.path.exists(mp))
