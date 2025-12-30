@@ -3,10 +3,12 @@ name: CodeQL
 on:
   push:
     branches: [ master, main ]
-    # paths-ignore:
+    paths-ignore:
+      - 'README.md'
 
   pull_request:
-    # paths-ignore:
+    paths-ignore:
+      - 'README.md'
 
   workflow_dispatch:
   schedule:

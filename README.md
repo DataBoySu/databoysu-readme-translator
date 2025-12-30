@@ -92,9 +92,21 @@ You can use any of the following codes in the `lang` input.
 | **el** | Greek | | **he** | Hebrew | | **fa** | Persian |
 | **ro** | Romanian | | **zh-tw**| Chinese (Traditional)| | | |
 
-## Quick start (Drag & Drop)
+---
+<picture>
+<img src="assets/quick_s.gif" width ="40%">
+</picture><br>
 
-To translate your README into the **9 default languages** automatically on push, or **manually specify languages** via the Actions tab, create a file named `.github/workflows/translate.yml` in your repository and paste the following:
+> Default: **9 languages** \
+> Perfect for trial & first runs
+
+1. Create a file named `.github/workflows/translate.yml` in your repository and paste in it, the workflow file below.
+2. Commit Changes and/or Push the changes
+3. Go to `Actions` tab in your GitHub repo
+4. On the left, click on `Translate Readme`
+5. In the new window, click on `Run workflow`
+
+**Optional**: add/remove codes for the languages you want translations in then click `Run workflow`
 
 ```yaml
 name: Translate Readme

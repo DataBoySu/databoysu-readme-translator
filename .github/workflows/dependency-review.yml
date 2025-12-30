@@ -1,7 +1,8 @@
 name: Dependency review
 on:
   pull_request:
-    # paths-ignore:
+    paths-ignore:
+      - 'README.md'
 
 permissions:
   contents: read

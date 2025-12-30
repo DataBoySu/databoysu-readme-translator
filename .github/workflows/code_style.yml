@@ -2,7 +2,8 @@ name: CODESTYLE
 
 on:
   push:
-    # paths-ignore:
+    paths-ignore:
+      - 'README.md'
 
 
 jobs:
