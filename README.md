@@ -1,6 +1,10 @@
 <div align="center">
 
-# DataBoySu's Readme Translator
+<h1>
+<picture>
+<img src="assets/alt_banner.gif">
+</picture>
+</h1>
 
 ![GitHub Release](https://img.shields.io/github/v/release/DataBoySu/databoysu-readme-translator?style=for-the-badge&color=0366d6&logo=github)
 ![Build Status](https://img.shields.io/github/actions/workflow/status/DataBoySu/databoysu-readme-translator/ci.yml?style=for-the-badge&label=Build&logo=github-actions)
