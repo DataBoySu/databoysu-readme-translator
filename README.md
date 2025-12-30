@@ -12,6 +12,10 @@
 ![License](https://img.shields.io/badge/License-AGPL_3.0-purple?style=for-the-badge)
 [![If You Liked!](https://img.shields.io/static/v1?label=%E2%AD%90&message=If%20You%20Liked!&style=for-the-badge&color=BC4E99)](https://github.com/DataBoySu/databoysu-readme-translator)
 
+---
+
+<picture>
+<img src="https://readme-typing-svg.demolab.com?font=Fira+Code&size=28&pause=1000&center=true&width=435&lines=Easy+Setup;100%25+Local+%26+Free;Security+%2B+Privacy" alt="Typing SVG" /></picture>
 </div>
 
 This Readme Translator is a composite GitHub Action that translates a repository README and injects a language navigation bar at the top of the README.
