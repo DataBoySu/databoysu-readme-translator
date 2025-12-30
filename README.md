@@ -60,7 +60,7 @@ This action runs entirely on the GitHub Runner, ensuring 100% Privacy focused an
 
 ## Translation Quality & Disclaimer
 
-This action acts as a pretty powerful **helper tool** designed to take your documentation **90-95% of the way** towards full localization.
+This automatic translator action acts as a pretty powerful **helper tool** designed to take your documentation **90-95% of the way** towards full localization.
 
 It utilizes a context-aware AI model structurally optimized for technical content, ensuring that code blocks, tags, and jargon is preserved.
 
