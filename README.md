@@ -2,7 +2,7 @@
 
 <h1>
 <picture>
-<img src="assets/alt_banner.gif">
+<img src="assets/alt_banner1.gif">
 </picture>
 </h1>
 
