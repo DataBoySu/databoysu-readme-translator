@@ -553,10 +553,8 @@ def main(lang, model_path='', nav_target='README.md', mode='translate'):
     target_lang_name = LANG_MAP.get(lang, "English")
     header_prompt, prose_prompt = get_system_prompts(target_lang_name)
     
-    # Load Guidance
-    scripts_dir = os.path.join(BASE_DIR, "scripts")
-    guidance_file = os.path.join(scripts_dir, f"{lang}.txt")
-    lang_guidance = open(guidance_file, "r").read().strip() if os.path.exists(guidance_file) else ""
+    # Load Guidance (use the safe helper which closes files properly)
+    lang_guidance = load_guidance(lang)
 
     os.makedirs(output_dir, exist_ok=True)
     with open(readme_path, 'r', encoding='utf-8') as f: content = f.read()
