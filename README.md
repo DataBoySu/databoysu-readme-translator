@@ -219,9 +219,11 @@ By default, this workflow uses the automatic `GITHUB_TOKEN` to push changes back
 <details><summary>
 <strong>Permissions:</strong> You must allow actions to read/write.
 </summary>
-<picture><img src="assets/wrkflw_perm.png" width="100%">
-
-- **Triggering Workflows**: The default `GITHUB_TOKEN` **cannot** trigger other workflows (like a GitHub Pages build). If you need this, create a Personal Access Token (PAT), add it as a secret named `GH_TOKEN`, and the workflow above will automatically use it.
+<picture>
+<img src="assets/wrkflw_perm0.png" width ="100%">
+<img src="assets/wrkflw_perm.png" width="100%">
+</picture>
+</details>
 
 ## License
 
