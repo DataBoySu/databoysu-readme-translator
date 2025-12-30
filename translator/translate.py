@@ -109,23 +109,50 @@ FORBIDDEN = [
     # Korean
     "이 섹션", "이 안에서", "이 섹션에서는", "의미한다", "설명한다",
     # Hindi
-    "यह अनुभाग", "इसमें", "इस अनुभाग में", "का अर्थ है", "समझाता है", "चिड़िया",
+    "यह अनुभाग", "इस अनुभाग में", "का अर्थ है", "समझाता है", "चिड़िया",
 ]
 
 # Language-specific expansion multipliers for length validation
 HIGH_MULTIPLIER_MAP = {
-    "ja": 5.5,
-    "hi": 5.5,
-    "ar": 4.0,
-    "he": 4.0,
-    "fa": 4.0,
-    "ru": 3.5,
-    "uk": 3.5,
-    "pl": 3.5,
-    "de": 3.5, # Added German (Compound nouns are long)
-    "fr": 3.5, # Added French
-    "es": 3.0, # Added Spanish
-    "zh": 3.5
+    # East Asian and high-expansion languages
+    "ja": 5.5,    # Japanese (very compact source -> longer translations)
+    "zh": 3.5,    # Chinese (Simplified)
+    "zh-tw": 3.5, # Chinese (Traditional)
+
+    # South Asian
+    "hi": 5.5,    # Hindi
+
+    # Right-to-left and morphologically rich languages
+    "ar": 4.0,    # Arabic
+    "he": 4.0,    # Hebrew
+    "fa": 4.0,    # Persian (Farsi)
+
+    # Slavic and other high-expansion languages
+    "ru": 3.5,    # Russian
+    "uk": 3.5,    # Ukrainian
+    "pl": 3.5,    # Polish
+
+    # Germanic / Romance
+    "de": 3.5,    # German (compound nouns)
+    "fr": 3.0,    # French
+    "es": 3.0,    # Spanish
+    "pt": 3.0,    # Portuguese
+    "it": 3.0,    # Italian
+
+    # Other European and SE Asian languages (moderate expansion)
+    "nl": 2.5,    # Dutch
+    "cs": 2.5,    # Czech
+    "el": 2.5,    # Greek
+    "ro": 2.5,    # Romanian
+    "tr": 2.5,    # Turkish
+    "vi": 2.5,    # Vietnamese
+    "id": 2.5,    # Indonesian
+
+    # Korean (can expand moderately)
+    "ko": 3.0,
+
+    # English - baseline (should not expand much)
+    "en": 2.0,
 }
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
