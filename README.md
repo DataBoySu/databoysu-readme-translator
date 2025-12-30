@@ -98,7 +98,8 @@ You can use any of the following codes in the `lang` input.
 </picture><br>
 
 > Default: **9 languages** \
-> Perfect for trial & first runs
+> Perfect for trial & first runs \
+> Below steps need to be done only once, on future readme changes, workflow will run automatically
 
 1. Create a file named `.github/workflows/translate.yml` in your repository and paste in it, the workflow file below.
 2. Commit Changes and/or Push the changes
