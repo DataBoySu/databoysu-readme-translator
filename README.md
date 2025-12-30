@@ -66,7 +66,7 @@ It utilizes a context-aware AI model structurally optimized for technical conten
 
 As a fail-safe, I have implemented complex post-processing which reverts document chunk back to original language(English) if it detects my set rule violations.
 
-While the quality is high, **manual review is required for the final 5%**.
+While the quality is high, **manual review is required for the final 5-10%**.
 
 > [!NOTE]
 > This pipeline was **not made to replace human documentation localizers** \
