@@ -212,19 +212,15 @@ The action automatically manages links between your translated files.
     <!--END_SECTION:navbar-->
     ```
 
-## Inputs
-
-| Input | Description | Required | Default |
-| :--- | :--- | :--- | :--- |
-| `lang` | Target language code (e.g., `fr`, `de`, `ja`) | **Yes** | N/A |
-| `readme_path` | Path to the source README | No | `README.md` |
-| `model_url` | Custom GGUF model URL | No | Aya Expanse 8B |
-
 ## Token & Permissions
 
 By default, this workflow uses the automatic `GITHUB_TOKEN` to push changes back to your repository.
 
-- **Permissions**: You must include `permissions: contents: write` in your workflow file.
+<details><summary>
+<strong>Permissions:</strong> You must allow actions to read/write.
+</summary>
+<picture><img src="assets/wrkflw_perm.png" width="100%">
+
 - **Triggering Workflows**: The default `GITHUB_TOKEN` **cannot** trigger other workflows (like a GitHub Pages build). If you need this, create a Personal Access Token (PAT), add it as a secret named `GH_TOKEN`, and the workflow above will automatically use it.
 
 ## License
