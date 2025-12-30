@@ -47,7 +47,7 @@ This action runs entirely on the GitHub Runner, ensuring 100% Privacy focused an
 > an average language translation job takes 40 minutes to run
 >
 > So it is recommended for everyone to use the example workflow given below \
-> to **parallely spin up multiple jobs** and translate everything in one go
+> to **parallely spin up multiple jobs** & translate everything in one go
 
 ---
 
@@ -61,12 +61,12 @@ As a fail-safe, I have implemented complex post-processing which reverts documen
 
 While the quality is high, **manual review is required for the final 5%**.
 
-> [!NOTE] 
+> [!NOTE]
 > This pipeline was **not made to replace human documentation localizers** \
 > but to provide them a **ready-made template** \
 > to style & improve the tone and wordings as they prefer, instead of having to make such translations from scratch.
 
-From Beginners starting out GitHub to experienced maintainers looking to create new projects, and want to whip up a quick multi-lingual readme can use this tool for one-click setup without any hassle.
+From Beginners starting out GitHub to experienced maintainers looking to create new projects, now anyone can whip up a quick multi-lingual readme by using this tool for one-click hassle-free setup.
 
 
 
