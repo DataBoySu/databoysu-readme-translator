@@ -16,6 +16,13 @@
 
 <picture>
 <img src="https://readme-typing-svg.demolab.com?font=Fira+Code&size=28&pause=1000&center=true&width=435&lines=Easy+Setup;100%25+Local+%26+Free;Security+%2B+Privacy" alt="Typing SVG" /></picture>
+
+<p>
+    <a href="https://github.com/DataBoySu/databoysu-readme-translator/issues">Report Bug</a>
+    ·
+    <a href="https://github.com/DataBoySu/databoysu-readme-translator/discussions/1">Request Feature</a>
+</p>
+
 </div>
 
 This Readme Translator is a composite GitHub Action that translates a repository README and injects a language navigation bar at the top of the README.
