@@ -1,4 +1,4 @@
-STYLE: Formal and precise. Vietnamese words are long; allow for text expansion.
+STYLE: Formal and precise Vietnamese. Vietnamese words are long; allow for text expansion.
 
 TERMINOLOGY:
 - Dashboard: Bảng điều khiển

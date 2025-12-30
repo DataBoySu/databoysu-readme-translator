@@ -1,4 +1,4 @@
-ROLE: Professional Technical Translator.
+ROLE: Professional Technical Romanian Translator.
 STRICT: Keep HTML tags exactly where they are. 
 GREEK TERMS: 
 - Dashboard: Πίνακας ελέγχου

@@ -1,3 +1,4 @@
+Role: Proper Turkish Translator
 TERMINOLOGY:
 - Throttling: Isıl kısıtlama (Throttling)
 - Enforcement: Limit Uygulama

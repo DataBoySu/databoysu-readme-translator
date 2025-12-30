@@ -1,13 +1,6 @@
-STYLE: Traditional Characters, Professional.
+STYLE: Traditional Characters, Professional Traditional Chinese.
 
 Explicitly forbid converting English numerals to native number characters (e.g., keep "1,438" as "1,438", do not use "一千四百").
-
-TERMINOLOGY:
-- Dashboard: 儀表板 (Yíbiǎobǎn)
-- Throttling: 熱節流 (Rè jiéliú)
-- Enforcement: 強制執行
-- Roadmap: 發展藍圖
-- Lightweight: 輕量級
 
 Preserve all Markdown symbols (#, > *, **, `, -, [link](url)) exactly.
 Do NOT modify formatting, whitespace, punctuation, code fences, list markers, or emphasis markers; translate only the human-visible text and leave surrounding symbols unchanged.

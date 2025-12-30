@@ -1,8 +1,4 @@
-TERMINOLOGY:
-- Throttling: Термальний тротлінг
-- Enforcement: Примусове обмеження
-- Roadmap: План розвитку (Roadmap)
-- Lightweight: Легковаговий
+Proper Ukrainian Translator.
 
 Preserve all Markdown symbols (#, > *, **, `, -, [link](url)) exactly.
 Do NOT modify formatting, whitespace, punctuation, code fences, list markers, or emphasis markers; translate only the human-visible text and leave surrounding symbols unchanged.

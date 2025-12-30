@@ -51,7 +51,7 @@ FORBIDDEN = [
     # English
     "This section", "In this", "In this section", "means", "explains",
     # Chinese (Simplified)
-    "以下", "说明", "本节", "在这里", "意味着", "解释",
+    "说明", "本节", "在这里", "意味着", "解释",
     # German
     "Dieser Abschnitt", "In diesem", "In diesem Abschnitt", "bedeutet", "erklärt",
     # French
@@ -103,14 +103,11 @@ FORBIDDEN = [
     "Phần này", "Trong này", "Trong phần này", "có nghĩa là", "giải thích",
 
     # Traditional Chinese
-    "以下", "說明", "本節", "在這裡", "意味著", "解釋",
-
+    "說明", "本節", "在這裡", "意味著", "解釋",
     # Portuguese
     "Esta seção", "Nesta seção", "significa", "explica",
-
     # Korean
     "이 섹션", "이 안에서", "이 섹션에서는", "의미한다", "설명한다",
-
     # Hindi
     "यह अनुभाग", "इसमें", "इस अनुभाग में", "का अर्थ है", "समझाता है", "चिड़िया",
 ]
@@ -125,9 +122,10 @@ HIGH_MULTIPLIER_MAP = {
     "ru": 3.5,
     "uk": 3.5,
     "pl": 3.5,
-    "de": 3.0, # Added German (Compound nouns are long)
-    "fr": 2.5, # Added French
-    "es": 2.5, # Added Spanish
+    "de": 3.5, # Added German (Compound nouns are long)
+    "fr": 3.5, # Added French
+    "es": 3.0, # Added Spanish
+    "zh": 3.5
 }
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -142,7 +140,7 @@ def _classify_text_as_struct_or_prose(text):
         t.startswith('<!--') or t.endswith('-->') or
         re.match(r'!\[.*?\]\(.*?\)', t) or
         re.match(r'\[.*?\]\(.*?\)', t) or
-        re.search(r'\[![^\]]+\]', t)
+        re.search(r'\[![^\]\[]+\]', t)
     ):
         return 'struct'
     return 'prose'
@@ -200,24 +198,11 @@ def split_struct_blockquotes(chunks):
         # like `[!NOTE]` or a localized variant (e.g., `[!WICHTIG]`),
         # treat the entire blockquote as `struct` so it is preserved
         # and not converted to a `prose` block for translation.
-        
         first_bq_line = lines[start].lstrip()
-        
-        # is_admonition_bq = bool(re.match(r'>\s*\[![^\]]+\]', first_bq_line)) or bool(re.search(r'\[![^\]]+\]', block))
-
-        # Check for admonition in the first blockquote line, e.g.:
-        #   > [!NOTE] Something
-        admonition_pattern = r'>\s*\[![^\]]+\]'
-        admonition_in_first_line = bool(re.match(admonition_pattern, first_bq_line))
-
-        # Also check for the admonition token anywhere inside the block
-        # (covers cases where the token might appear on an inner line)
-        admonition_in_block = bool(re.search(r'\[![^\]]+\]', block))
-
-        is_admonition_bq = admonition_in_first_line or admonition_in_block
+        is_admonition_bq = bool(re.match(r'>\s*\[![^\]\[]+\]', first_bq_line)) or bool(re.search(r'\[![^\]\[]+\]', block))
 
         if before:
-            out.append(('struct', before))
+            out.append((_classify_text_as_struct_or_prose(before), before))
 
         if is_admonition_bq:
             out.append(('struct', block))
@@ -249,11 +234,18 @@ def get_smart_chunks(text):
         p = part.strip()
 
         # Treat GitHub-style admonition tokens like [!NOTE], [!IMPORTANT] as struct
-        if re.search(r'\[![^\]]+\]', p):
+        if re.search(r'\[![^\]\[]+\]', p):
             chunks.append(("struct", p))
             continue
 
         if re.match(r'^[-*_]{3,}$', p):
+            chunks.append(("struct", p))
+            continue
+
+        # Treat Markdown image badges/links as struct (e.g., ![Lines of Code](...)).
+        # Do this before classifying blockquotes as prose so badge lines inside
+        # blockquotes are not misclassified.
+        if re.match(r'!\[.*?\]\(.*?\)', p) or re.match(r'\[.*?\]\(.*?\)', p):
             chunks.append(("struct", p))
             continue
 
@@ -280,11 +272,12 @@ def get_smart_chunks(text):
 
 
 
-def merge_small_chunks(chunks, min_chars=20):
+def merge_small_chunks(chunks, min_chars=50):
     merged = []
     i = 0
     while i < len(chunks):
         ctype, ctext = chunks[i]
+        
         if ctype == "prose" and (ctext.startswith('#') or len(ctext) < min_chars) and i + 1 < len(chunks) and chunks[i+1][0] != "struct":
             next_ctype, next_ctext = chunks[i+1]
             combined_text = ctext + "\n\n" + next_ctext
@@ -296,114 +289,115 @@ def merge_small_chunks(chunks, min_chars=20):
             i += 1
     return merged
 
+# 2. Cleanup & Processing Functions
+
+def strip_think_tokens(text):
+    if not text:
+        return text
+    # Remove the think block content entirely
+    text = re.sub(r'<think\b[^>]*>[\s\S]*?<\/think>', '', text, flags=re.IGNORECASE)
+    # Collapse excessive blank lines (3+ newlines -> 2 newlines)
+    text = re.sub(r'\n{3,}', '\n\n', text)
+    return text
+
+def strip_garbage_lines(text):
+    if not text:
+        return text
+    # 1. Remove lines containing specific garbage characters (ESC, RS, FS, SUB)
+    text = re.sub(r'^.*[\x1b\x1e\x1c\x1a].*(\r?\n|\Z)', '', text, flags=re.MULTILINE)
+    # 2. Remove lines that are 1 or 2 characters long (ignoring whitespace)
+    text = re.sub(r'^[ \t]*[^\s>]{1,2}[ \t]*(\r?\n|\Z)', '', text, flags=re.MULTILINE)
+    # 3. Collapse excessive blank lines again in case removal created gaps
+    # text = re.sub(r'\n{3,}', '\n\n', text)
+    return text
+
+def fix_relative_paths(text):
+    # Prepends ../ to local links since translated files live in /locales/
+    text = re.sub(r'(\[.*?\]\()(?!(?:http|/|#|\.\./))', r'\1../', text) 
+    text = re.sub(r'((?:src|href)=["\'])(?!(?:http|/|#|\.\./))', r'\1../', text)
+    return text
 
 
-# 3. Prompts
+# 4. Translation Core
+
 def translate_chunk(text, llm, prompts, lang_guidance=None, is_lone_header=False):
-    """Translate a single chunk using llama-cpp-python."""
-    
-    # Select base prompt
     base_prompt = prompts['header'] if is_lone_header else prompts['prose']
+    system_content = f"{lang_guidance}\n\n{base_prompt}" if lang_guidance else base_prompt
 
-    if lang_guidance:
-        system_content = f"{lang_guidance}\n\n{base_prompt}"
-    else:
-        system_content = base_prompt
-
-    # Aya Expanse Prompt Style
-    # prompt = (
-    #     f"<|START_OF_TURN_TOKEN|><|SYSTEM_TOKEN|>\n{system_content}\n<|END_OF_TURN_TOKEN|>\n"
-    #     f"<|START_OF_TURN_TOKEN|><|USER_TOKEN|>\n{text}<|END_OF_TURN_TOKEN|>\n"
-    #     f"<|START_OF_TURN_TOKEN|><|CHATBOT_TOKEN|>"
-    # )
-
-    # Qwen ChatML Prompt Style
+    # ChatML Template integration
     prompt = (
-        f"<|im_start|>system\n{system_content}<|im_end|>\n"
-        f"<|im_start|>user\n{text} /no_think<|im_end|>\n"
+        f"<|im_start|>system\n/no_think{system_content}<|im_end|>\n"
+        f"<|im_start|>user\n{text}<|im_end|>\n"
         f"<|im_start|>assistant\n"
     )
 
-    # Dynamic max_tokens
     estimated_limit = int(len(text) * 3) + 200
     gen_limit = min(4096, max(256, estimated_limit))
 
-    # response = llm(prompt, max_tokens=gen_limit, temperature=0, stop=["<|END_OF_TURN_TOKEN|>"])
     response = llm(prompt, max_tokens=gen_limit, temperature=0, stop=["<|im_end|>"])
     translated = response['choices'][0]['text'].strip()
     
-    # Safety: Remove <think>...</think> blocks if the model ignores /no_think
+    # Local-style think tag safety
     translated = re.sub(r'<think>.*?</think>', '', translated, flags=re.DOTALL).strip()
-
-    # Cleanup markdown fences if the model hallucinated them around the output
+    
+    # Fence cleanup
     if translated.startswith("```") and translated.endswith("```"):
         lines = translated.splitlines()
-        if len(lines) > 2:
-            translated = "\n".join(lines[1:-1]).strip()
+        if len(lines) > 2: translated = "\n".join(lines[1:-1]).strip()
 
     return translated
-
-
-def inject_navbar(readme_text, langs):
-    """Inject or update the navigation bar in the README."""
-    start_marker = '<!--START_SECTION:navbar-->'
-    end_marker = '<!--END_SECTION:navbar-->'
-
-    links = []
-    # Always include English (Root) first
-    flag, name = NAV_DATA.get("en", ("🇺🇸", "English"))
-    links.append(f'<a href="README.md">{flag} {name}</a>')
-
-    for l in sorted(langs):
-        if l == "en": continue
-        if l in NAV_DATA:
-            flag, name = NAV_DATA[l]
-        else:
-            flag, name = "🏳️", l.upper()
-        href = f"locales/README.{l}.md"
-        links.append(f'<a href="{href}">{flag} {name}</a>')
-
-    navbar_content = ' | '.join(links)
-    html_block = f'<div align="center">\n  {navbar_content}\n</div>'
-    block = f"{start_marker}\n{html_block}\n{end_marker}\n\n"
-
-    # Regex to replace existing block (handling potential multiline content between markers)
-    pattern = re.compile(f'{re.escape(start_marker)}.*?{re.escape(end_marker)}\s*', re.DOTALL)
-
-    if pattern.search(readme_text):
-        return pattern.sub(block, readme_text)
-    else:
-        return block + readme_text
 
 
 def get_system_prompts(target_lang_name):
     """Generate system prompts for the target language."""
     header = (
-    f"You are a technical translation filter for {target_lang_name}.\n"
-        "STRICT RULES:\n"
-        "- The input is a single section header. Translate it 1:1.\n"
-        "- DO NOT generate any content, lists, or descriptions under the header.\n"
-        "- Preserve the '#' symbols exactly.\n"
-        "- Output ONLY the translated header.\n"
-        "- Preserve original formatting, punctuation, whitespace, and markdown/code symbols exactly; do NOT normalize, reflow, or 'fix' the input."
+f"You are a professional technical header translation engine for {target_lang_name}. "
+    "Your output must be a direct 1:1 mapping of the input string.\n\n"
+    
+    "### CRITICAL OUTPUT RULE:\n"
+    "- Output ONLY the single translated header line. No introductions, no conversational filler.\n"
+    "- The input is a standalone section header; your response must be exactly one line.\n\n"
+    
+    "### SYNTAX & MARKDOWN LOCKDOWN:\n"
+    "- Preserve the '#' symbols exactly (e.g., if the input is '## Setup', the output must start with '## ').\n"
+    "- Do NOT normalize, reflow, or 'fix' the input. Preserve all original punctuation and whitespace exactly.\n"
+    "- Preserve all markdown/code symbols within the header line unchanged.\n\n"
+    
+    "### EXAMPLES:\n"
+    "- Input: '## Setup'\n"
+    "  Output: '## [Translated Setup]'\n"
+    "- Input: '# Introduction 🚀'\n"
+    "  Output: '# [Translated Introduction] 🚀'\n\n"
+    
+    "### STRICTLY FORBIDDEN:\n"
+    "- DO NOT generate any content, lists, descriptions, or placeholder text under the header.\n"
+    "- DO NOT attempt to 'finish' the section or add 'helpful' context.\n"
+    "- Any output beyond the raw translated header line will cause a system crash."
     )
 
     prose = (
-        f"You are a professional technical {target_lang_name} translation engine. "
-        f"Your task: Translate the input into {target_lang_name}.\n"
-            "STRICT RULES:\n"
-        "- Output ONLY the final translated text. No intros, no 'Here is the translation'.\n"
-        "- - You may translate visible text between HTML tags, but NEVER modify the tags or their attributes. If unsure, leave HTML content unchanged. (e.g., <summary>Source</summary> -> <summary>Translation</summary>).\n"
-        "- NEVER modify HTML tags, attributes (href, src), or CSS styles.\n"
-        "- NEVER translate or reformat numbers, units (hrs, mins, sec), or timestamps. Treat them as immutable code.\n"
-        "- Keep technical terms (GPU, VRAM, CLI, Docker, GEMM, PIDs, NVLink) in English.\n"
-        "- Preserve all Markdown symbols (#, > *, **, `, -, [link](url)) exactly.\n"
-        "- Do NOT modify formatting, whitespace, punctuation, code fences, list markers, or emphasis markers; translate only the human-visible text and leave surrounding symbols unchanged.\n"
-        "- Preserve original formatting, punctuation, whitespace, and markdown/code symbols exactly; do NOT normalize, reflow, or 'fix' the input."
-        "ADDITIONAL GUIDANCE FOR BADGES/HYBRIDS:\n"
-                "- Do NOT translate or modify markdown image links/badges of the form ![alt](url).\n"
-                "- Do NOT translate or modify bracketed admonition tokens like [!NOTE] or [!IMPORTANT].\n"
-                "- Preserve these tokens exactly including punctuation, spacing, case, and brackets."        
+    f"You are a professional technical translation engine for {target_lang_name}. "
+    "Your output is piped directly into a production file; any deviation will break the system.\n\n"
+    "Use <think> to start thinking and </think> to stop thinking. Both tags go together, do not output one, without the other in exact same sequence."
+    "### CRITICAL OUTPUT RULES:\n"
+    "- Output ONLY the translated text. No introductions, no conversational filler, and no 'Here is the translation'.\n"
+    "- STRICTLY FORBIDDEN: Do not add safety disclaimers, warnings, or 'Note:' prefixes regarding API keys or security.\n"
+    "- If you add any text other than the raw translation, the system will crash.\n\n"
+    
+    "### DATA & CODE INTEGRITY:\n"
+    "- NUMERICAL LOCKDOWN: NEVER translate or reformat numbers, units (hrs, mins, sec), or timestamps. Treat them as immutable code constants.\n"
+    "- SACRED TOKENS: Treat text inside angle brackets (e.g., <Your GitHub Access Token>) as non-translatable code. Keep placeholders exactly as they appear.\n"
+    "- TECHNICAL TERMS: Keep hardware and software identifiers (GPU, VRAM, CLI, Docker, GEMM, PIDs, NVLink) in English.\n\n"
+    
+    "### STRUCTURAL & MARKDOWN SYNTAX:\n"
+    "- HTML BLACK BOX: NEVER modify HTML tags, attributes (href, src), or CSS styles. Translate only human-visible text between tags.\n"
+    "- MARKDOWN SYMBOLS: Preserve all symbols (#, > *, **, `, -, [link](url)) exactly. Do not change list markers or emphasis styles.\n"
+    "- BADGES: Do NOT translate or modify markdown image links/badges of the form ![alt](url).\n"
+    "- ADMONITIONS: Do NOT translate bracketed tokens like [!NOTE], [!IMPORTANT], or [!WARNING]. Preserve case and brackets exactly.\n\n"
+    
+    "### FORMATTING & WHITESPACE:\n"
+    "- Do NOT normalize, reflow, or 'fix' the input text. Preserve all original whitespace, punctuation, and line breaks exactly.\n"
+    "- Translate human text only; leave surrounding technical symbols unchanged."      
     )
     return header, prose
 
@@ -419,64 +413,44 @@ def load_guidance(lang):
 
 
 def process_chunks(chunks, llm, lang, prompts, lang_guidance):
-    """Translate chunks and return joined text."""
     final_output = []
-    multiplier = HIGH_MULTIPLIER_MAP.get(lang, 2.5) # Default to 2.0x expansion allowed
-
-    total_chunks = len(chunks)
-    print(f"[INFO] Processing {total_chunks} chunks for language '{lang}'...", flush=True)
+    multiplier = HIGH_MULTIPLIER_MAP.get(lang, 3.0)
+    total = len(chunks)
 
     for i, (ctype, ctext) in enumerate(chunks):
-        if ctype == 'struct':
-            final_output.append(ctext + '\n\n')
-            continue
+        if ctype == 'struct' or not ctext.strip():
+            final_output.append(ctext + '\n\n'); continue
 
-        # Skip empty chunks
-        if not ctext.strip():
-            continue
-
-        print(f"[INFO] Translating chunk {i+1}/{total_chunks} ({len(ctext)} chars)...", flush=True)
+        print(f"[INFO] Translating chunk {i+1}/{total}...", flush=True)
         is_lone_header = ctext.strip().startswith('#') and '\n' not in ctext.strip()
         
-        translated = translate_chunk(
-            ctext, llm, prompts, lang_guidance, is_lone_header
-        )
+        translated = translate_chunk(ctext, llm, prompts, lang_guidance, is_lone_header)
 
-        # Validation 1: Length check (Hallucination loop detection)
+        # Local Pipeline Validation Logic
         if len(translated) > multiplier * len(ctext):
-            print(f"[WARN] Chunk {i+1} failed length validation (Too long), reverting.", flush=True)
-            translated = ctext
-        
-        # Validation 2: Forbidden phrases (Chatter detection)
+            print(f"[WARN] Length check failed on chunk {i+1}, reverting."); translated = ctext
         elif any(f in translated for f in FORBIDDEN):
-            print(f"[WARN] Chunk {i+1} contained forbidden phrase, reverting.", flush=True)
-            translated = ctext
-        
-        # Validation 3: Critical HTML Tag Loss (New)
-        # If input had a closing div/details, output must have it too.
-        if "</div>" in ctext and "</div>" not in translated:
-             print(f"[WARN] Chunk {i+1} lost critical HTML tags, reverting.", flush=True)
-             translated = ctext
-        if "</details>" in ctext and "</details>" not in translated:
-             print(f"[WARN] Chunk {i+1} lost critical HTML tags, reverting.", flush=True)
-             translated = ctext
+            print(f"[WARN] Forbidden phrase detected in chunk {i+1}, reverting."); translated = ctext
+        elif ("</div>" in ctext and "</div>" not in translated) or ("</details>" in ctext and "</details>" not in translated):
+            print(f"[WARN] HTML structural loss in chunk {i+1}, reverting."); translated = ctext
 
         final_output.append(translated.rstrip() + '\n\n')
 
     return ''.join(final_output)
 
 
+# 5. Pipeline Orchestration
+
 def run_translation_pipeline(content, llm, lang, prompts, lang_guidance):
-    """Execute the chunking and translation steps."""
     chunks = get_smart_chunks(content)
-    chunks = split_struct_blockquotes(chunks)
     chunks = merge_small_chunks(chunks)
 
     full_text = process_chunks(chunks, llm, lang, prompts, lang_guidance)
     
-    # Post-processing: Fix relative paths
-    full_text = re.sub(r'(\[.*?\]\()(?!(?:http|/|#|\.\./))', r'\1../', full_text)
-    full_text = re.sub(r'((?:src|href)=["\'])(?!(?:http|/|#|\.\./))', r'\1../', full_text)
+    # Cleaning Phase
+    full_text = strip_think_tokens(full_text)
+    full_text = strip_garbage_lines(full_text)
+    full_text = fix_relative_paths(full_text)
     
     return full_text
 
@@ -532,88 +506,41 @@ def regenerate_all_navbars(readme_path, locales_dir):
     # 2. Update Locales
     locale_nav = get_nav_html(is_root=False)
     locale_block = f'{start}\n<div align="center">\n  {locale_nav}\n</div>\n{end}\n\n'
-    for l in langs:
-        update_file(os.path.join(locales_dir, f'README.{l}.md'), locale_block)
+    for lang in langs:
+        update_file(os.path.join(locales_dir, f'README.{lang}.md'), locale_block)
     
     print(f"[SUCCESS] Regenerated navbars for Root and {len(langs)} locales.")
 
 
-def update_navbar_in_readme(readme_path, output_dir, lang):
-    """Discover locales and update the README navbar."""
-    locales_dir = output_dir
-    discovered = []
-    if os.path.isdir(locales_dir):
-        for fname in os.listdir(locales_dir):
-            m = re.match(r'README\.(.+?)\.md$', fname)
-            if m:
-                discovered.append(m.group(1))
-
-    # Ensure current language is present
-    if lang not in discovered:
-        discovered.append(lang)
-
-    # sort for deterministic order, but keep existing order if present
-    # we'll sort to keep behavior predictable
-    locales = sorted(discovered)
-
-    with open(readme_path, 'r', encoding='utf-8') as f:
-        original = f.read()
-
-    updated = inject_navbar(original, locales)
-
-    with open(readme_path, 'w', encoding='utf-8') as f:
-        f.write(updated)
-
-
 def main(lang, model_path='', nav_target='README.md', mode='translate'):
-    """Run translation for a single language.
-
-    Parameters:
-    - lang: language code
-    - model_path: path to GGUF model file
-    - nav_target: README path relative to repo root
-    - mode: 'translate' or 'navbar'
-    """
-    # Use current working directory for target repo files
     readme_path = os.path.abspath(nav_target)
     output_dir = os.path.join(os.getcwd(), "locales")
 
     if mode == 'navbar':
-        regenerate_all_navbars(readme_path, output_dir)
-        return
-
-    target_lang_name = LANG_MAP.get(lang, "English")
-
-    header_prompt, prose_prompt = get_system_prompts(target_lang_name)
-    prompts = {'header': header_prompt, 'prose': prose_prompt}
-    lang_guidance = load_guidance(lang)
-
-    output_path = os.path.join(output_dir, f"README.{lang}.md")
+        regenerate_all_navbars(readme_path, output_dir); return
 
     from llama_cpp import Llama
-    
-    # mp = model_path or os.path.join(BASE_DIR, 'models', 'aya-expanse-8b-Q4_K_M.gguf')
     mp = model_path or os.path.join(BASE_DIR, 'models', 'Qwen3-14B-Q4_K_M.gguf')
+    llm = Llama(model_path=mp, n_ctx=8192, n_threads=4, verbose=False)
+
+    target_lang_name = LANG_MAP.get(lang, "English")
+    header_prompt, prose_prompt = get_system_prompts(target_lang_name)
     
-    print("Model path:", mp)
-    print("Exists:", os.path.exists(mp))
-    print("Size:", os.path.getsize(mp) if os.path.exists(mp) else "N/A")
-    
-    llm = Llama(model_path=mp, n_ctx=8192, n_threads=2, verbose=False)
+    # Load Guidance
+    scripts_dir = os.path.join(BASE_DIR, "scripts")
+    guidance_file = os.path.join(scripts_dir, f"{lang}.txt")
+    lang_guidance = open(guidance_file, "r").read().strip() if os.path.exists(guidance_file) else ""
 
     os.makedirs(output_dir, exist_ok=True)
+    with open(readme_path, 'r', encoding='utf-8') as f: content = f.read()
 
-    with open(readme_path, 'r', encoding='utf-8') as f:
-        content = f.read()
+    translated_text = run_translation_pipeline(content, llm, lang, {'header': header_prompt, 'prose': prose_prompt}, lang_guidance)
 
-    translated_text = run_translation_pipeline(content, llm, lang, prompts, lang_guidance)
-
-    with open(output_path, 'w', encoding='utf-8') as f:
+    with open(os.path.join(output_dir, f"README.{lang}.md"), 'w', encoding='utf-8') as f:
         f.write(translated_text)
 
-    update_navbar_in_readme(readme_path, output_dir, lang)
-    
-    print(f'[SUCCESS] Wrote translated locales to {output_path} and injected navbar into {readme_path}')
+    regenerate_all_navbars(readme_path, output_dir)
+    print(f'[SUCCESS] Translated locale for {lang} created.')
 
 
 if __name__ == '__main__':

@@ -29,3 +29,9 @@ TERMINOLOGY:
 3. PUNCTUATION: Use Japanese full-width punctuation (。 and 、) instead of (. and ,) in prose.
 4. INSTRUCTIONS: For the "Quick Start" or "Installation" steps, use polite command forms like "～してにゃん！" or "～してくださいにゃん！".
 5. NO REARRANGING: Japanese grammar often puts the verb at the end. DO NOT let this drag HTML tags to the end of the sentence. Keep the tags as anchors!
+
+SECURITY CONTEXT:
+- The word "DANGEROUS" is a technical warning within the documentation.
+- DO NOT add your own security warnings, disclaimers, or advice.
+- Translate the word "DANGEROUS" as a direct 1:1 term (e.g., JA: 危険).
+- Do not add any text explaining why API tokens are sensitive.

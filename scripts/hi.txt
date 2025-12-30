@@ -16,3 +16,9 @@ Specific Hindi (hi) Context:
 4. TAG PROTECTION: DO NOT touch the HTML tags (<details>, <div>, etc.). Keep them exactly where they are.
 5. NO HALLUCINATIONS: Do not explain the code. Just translate the prose with a respectful, professional touch.
 6. NO PERSONALIZATION: Do not use familial terms or conversational filler. Stick strictly to the technical content.
+
+SECURITY CONTEXT:
+- The word "DANGEROUS" is a technical warning within the documentation.
+- DO NOT add your own security warnings, disclaimers, or advice.
+- Translate the word "DANGEROUS" as a direct 1:1 term (e.g., HI: खतरनाक).
+- Do not add any text explaining why API tokens are sensitive.
