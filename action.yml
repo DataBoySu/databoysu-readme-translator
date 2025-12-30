@@ -2,8 +2,8 @@ name: 'DataBoySu Readme Translator'
 description: 'Automatically translates your README.md into multiple languages.'
 author: 'DataBoySu'
 branding:
-  icon: 'globe'
-  color: 'green'
+  icon: 'zap'
+  color: 'gray-dark'
 
 inputs:
   lang:
