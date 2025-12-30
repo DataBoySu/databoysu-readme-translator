@@ -32,12 +32,12 @@ This action runs entirely on the GitHub Runner, ensuring 100% Privacy focused an
 
 > [!IMPORTANT] \
 > This translation tool is primarily meant for **public repositories** \
-> It relies on the public instances of GitHub Action Runners to run \
+> It relies on the public instances of GitHub Action Runners to run 
 >
 > While private repo owners can also run this pipeline, they should be aware that \
-> an average multi-language job takes 40 minutes to run \
+> an average language translation job takes 40 minutes to run 
 >
-> it is recommended for everyone to use the example workflow given below \
+> So it is recommended for everyone to use the example workflow given below \
 > to parallely spin up multiple jobs and translate everything in one go
 
 ---
@@ -53,9 +53,9 @@ As a fail-safe, I have implemented complex post-processing which reverts documen
 While the quality is high, **manual review is required for the final 5%**.
 
 > [!NOTE] \
-> This pipeline was <strong> not made to replace human documentation localizers </strong> \
-> but to provide them a <strong> ready-made template </strong> \
-> to style/improve the tone and wordings as they prefer, instead of having to make such translations from scratch.
+> This pipeline was **not made to replace human documentation localizers** \
+> but to provide them a **ready-made template** \
+> to style & improve the tone and wordings as they prefer, instead of having to make such translations from scratch.
 
 From Beginners starting out GitHub to experienced maintainers looking to create new projects, and want to whip up a quick multi-lingual readme can use this tool for one-click setup without any hassle.
 
