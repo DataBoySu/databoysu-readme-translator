@@ -1,4 +1,4 @@
-<p align="center">
+<div align="center">
 
 # DataBoySu's Readme Translator
 
@@ -6,8 +6,9 @@
 ![Build Status](https://img.shields.io/github/actions/workflow/status/DataBoySu/databoysu-readme-translator/ci.yml?style=for-the-badge&label=Build&logo=github-actions)
 ![Python Version](https://img.shields.io/badge/Python-3.10%2B-blue?style=for-the-badge&logo=python&logoColor=white)
 ![License](https://img.shields.io/badge/License-AGPL_3.0-purple?style=for-the-badge)
+[![If You Liked!](https://img.shields.io/static/v1?label=%E2%AD%90&message=If%20You%20Liked!&style=for-the-badge&color=BC4E99)](https://github.com/DataBoySu/databoysu-readme-translator)
 
-</p>
+</div>
 
 This Readme Translator is a composite GitHub Action that translates a repository README and injects a language navigation bar at the top of the README.
 
