@@ -52,7 +52,7 @@ As a fail-safe, I have implemented complex post-processing which reverts documen
 
 While the quality is high, **manual review is required for the final 5%**.
 
-> [!NOTE] \
+> [!NOTE] 
 > This pipeline was **not made to replace human documentation localizers** \
 > but to provide them a **ready-made template** \
 > to style & improve the tone and wordings as they prefer, instead of having to make such translations from scratch.
