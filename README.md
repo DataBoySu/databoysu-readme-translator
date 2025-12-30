@@ -31,15 +31,17 @@ This action runs entirely on the GitHub Runner, ensuring 100% Privacy focused an
 
 ## Features
 
-- Translate README into a target language using a local GGUF model (via `llama-cpp-python`).
+- Translate your README into 20+ languages for diverse readers with a single tool.
+- Handles complex READMEs gracefully.
 - Injects and updates a navbar section in your REDADME delimited by
 
 <a href="https://github.com/DataBoySu/waka-readme-stats">
 <img src="assets/nav_bar.png" width="100%">
 </a>
 
-- Uses multi-step validation approach to prevent format breaks, hallucinations, etc.
-- Supports 20+ languages.
+- Uses multi-step validation approach to prevent structure breaks, hallucinations, mistranslations etc.
+- Entire pipeline runs end-to-end right in your repo.
+- Completely FREE and local.
 - Automatic caching of the model weights and parallel execution of translation jobs for sped up translations.
 
 ---
