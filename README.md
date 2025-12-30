@@ -34,11 +34,9 @@ This action runs entirely on the GitHub Runner, ensuring 100% Privacy focused an
 - Translate README into a target language using a local GGUF model (via `llama-cpp-python`).
 - Injects and updates a navbar section in your REDADME delimited by
 
-```
- <!--START_SECTION:navbar--> 
- 
- <!--END_SECTION:navbar-->
-```
+<a href="https://github.com/DataBoySu/waka-readme-stats">
+<img src="assets/nav_bar.png" width="100%">
+</a>
 
 - Uses multi-step validation approach to prevent format breaks, hallucinations, etc.
 - Supports 20+ languages.
