@@ -36,7 +36,7 @@ This action runs entirely on the GitHub Runner, ensuring 100% Privacy focused an
 - Injects and updates a navbar section in your REDADME delimited by
 
 <a href="https://github.com/DataBoySu/waka-readme-stats">
-<img src="assets/nav_bar.png" width="100%">
+<img src="assets/nav_bar.png" width="100%" alt="Nav_Bar example repo">
 </a>
 
 - Uses multi-step validation approach to prevent structure breaks, hallucinations, mistranslations etc.
@@ -62,7 +62,7 @@ This action runs entirely on the GitHub Runner, ensuring 100% Privacy focused an
 
 This automatic translator action acts as a pretty powerful **helper tool** designed to take your documentation **90-95% of the way** towards full localization.
 
-It utilizes a context-aware AI model structurally optimized for technical content, ensuring that code blocks, tags, and jargon is preserved.
+It utilizes Qwen3-14B AI model structurally optimized through prompt engineering and regex filtering for technical content, ensuring that code blocks, tags, and jargon is preserved.
 
 As a fail-safe, I have implemented complex post-processing which reverts document chunk back to original language(English) if it detects my set rule violations.
 
