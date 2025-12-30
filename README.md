@@ -41,13 +41,13 @@ This action runs entirely on the GitHub Runner, ensuring 100% Privacy focused an
 
 > [!IMPORTANT]
 > This translation tool is primarily meant for **public repositories** \
-> It relies on the public instances of GitHub Action Runners to run
+> Its intended execution platform is public instances of GitHub Runners
 >
 > While private repo owners can also run this pipeline, they should be aware that \
 > an average language translation job takes 40 minutes to run
 >
 > So it is recommended for everyone to use the example workflow given below \
-> to parallely spin up multiple jobs and translate everything in one go
+> to **parallely spin up multiple jobs** and translate everything in one go
 
 ---
 
