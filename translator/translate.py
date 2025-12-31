@@ -457,7 +457,7 @@ def process_chunks(chunks, llm, lang, prompts, lang_guidance):
         if len(translated) > multiplier * len(ctext):
             print(f"[WARN] Length check failed on chunk {i+1}, reverting."); translated = ctext
         elif any(f in translated for f in FORBIDDEN):
-            print(f"[WARN] Forbidden phrase detected in chunk {i+1}, reverting."); translated = ctext
+            print(f"[WARN] Forbidden phrase detected in chunk {i+1}, might be hallucinatory.")
         elif ("</div>" in ctext and "</div>" not in translated) or ("</details>" in ctext and "</details>" not in translated):
             print(f"[WARN] HTML structural loss in chunk {i+1}, reverting."); translated = ctext
 
