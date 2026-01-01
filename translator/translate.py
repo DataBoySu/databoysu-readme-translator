@@ -6,8 +6,6 @@ import os
 import re
 import argparse
 
-# translation pipeline for GitHub Action
-
 LANG_MAP = {
     "de": "German", "fr": "French", "es": "Spanish", "ja": "Japanese",
     "zh": "Chinese(Simplified)", 
@@ -157,9 +155,15 @@ HIGH_MULTIPLIER_MAP = {
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-# 2. Smart Chunking Functions
-
 def _classify_text_as_struct_or_prose(text):
+    """Classify text as 'struct' or 'prose' based on structural markers.
+
+    Args:
+        text (str): The text to classify.
+
+    Returns:
+        str: 'struct' if the text contains structural elements, 'prose' otherwise.
+    """
     t = text.strip()
     if (
         t.startswith(('<div', '<details', '```')) or
@@ -243,6 +247,14 @@ def split_struct_blockquotes(chunks):
 
 
 def get_smart_chunks(text):
+    """Split text into smart chunks based on markdown and HTML structures.
+
+    Args:
+        text (str): The input text to chunk.
+
+    Returns:
+        list: List of tuples (chunk_type, chunk_text) where chunk_type is 'struct' or 'prose'.
+    """
     pattern = r'(' \
               r'```[\s\S]*?```|' \
               r'<div\b[^>]*>[\s\S]*?<\/div>|' \
@@ -300,6 +312,15 @@ def get_smart_chunks(text):
 
 
 def merge_small_chunks(chunks, min_chars=50):
+    """Merge small prose chunks to optimize translation.
+
+    Args:
+        chunks (list): List of (type, text) tuples.
+        min_chars (int): Minimum character count for a chunk to be considered large.
+
+    Returns:
+        list: Merged list of chunks.
+    """
     merged = []
     i = 0
     while i < len(chunks):
@@ -316,9 +337,15 @@ def merge_small_chunks(chunks, min_chars=50):
             i += 1
     return merged
 
-# 2. Cleanup & Processing Functions
-
 def strip_think_tokens(text):
+    """Remove think tokens and collapse excessive blank lines.
+
+    Args:
+        text (str): The text to clean.
+
+    Returns:
+        str: Cleaned text.
+    """
     if not text:
         return text
     # Remove the think block content entirely
@@ -328,6 +355,14 @@ def strip_think_tokens(text):
     return text
 
 def strip_garbage_lines(text):
+    """Remove lines with garbage characters and short lines.
+
+    Args:
+        text (str): The text to clean.
+
+    Returns:
+        str: Cleaned text.
+    """
     if not text:
         return text
     # 1. Remove lines containing specific garbage characters (ESC, RS, FS, SUB)
@@ -339,19 +374,34 @@ def strip_garbage_lines(text):
     return text
 
 def fix_relative_paths(text):
-    # Prepends ../ to local links since translated files live in /locales/
+    """Fix relative paths in links to point to parent directory.
+
+    Args:
+        text (str): The text containing links.
+
+    Returns:
+        str: Text with fixed paths.
+    """
     text = re.sub(r'(\[.*?\]\()(?!(?:http|/|#|\.\./))', r'\1../', text) 
     text = re.sub(r'((?:src|href)=["\'])(?!(?:http|/|#|\.\./))', r'\1../', text)
     return text
 
-
-# 4. Translation Core
-
 def translate_chunk(text, llm, prompts, lang_guidance=None, is_lone_header=False):
+    """Translate a single chunk of text using the LLM.
+
+    Args:
+        text (str): The text to translate.
+        llm: The LLM instance.
+        prompts (dict): Dictionary with 'header' and 'prose' prompts.
+        lang_guidance (str, optional): Language-specific guidance.
+        is_lone_header (bool): Whether this is a standalone header.
+
+    Returns:
+        str: Translated text.
+    """
     base_prompt = prompts['header'] if is_lone_header else prompts['prose']
     system_content = f"{lang_guidance}\n\n{base_prompt}" if lang_guidance else base_prompt
 
-    # ChatML Template integration
     prompt = (
         f"<|im_start|>system\n/no_think{system_content}<|im_end|>\n"
         f"<|im_start|>user\n{text}<|im_end|>\n"
@@ -364,10 +414,8 @@ def translate_chunk(text, llm, prompts, lang_guidance=None, is_lone_header=False
     response = llm(prompt, max_tokens=gen_limit, temperature=0, stop=["<|im_end|>"])
     translated = response['choices'][0]['text'].strip()
     
-    # Local-style think tag safety
     translated = re.sub(r'<think>.*?</think>', '', translated, flags=re.DOTALL).strip()
     
-    # Fence cleanup
     if translated.startswith("```") and translated.endswith("```"):
         lines = translated.splitlines()
         if len(lines) > 2: translated = "\n".join(lines[1:-1]).strip()
@@ -376,7 +424,14 @@ def translate_chunk(text, llm, prompts, lang_guidance=None, is_lone_header=False
 
 
 def get_system_prompts(target_lang_name):
-    """Generate system prompts for the target language."""
+    """Generate system prompts for header and prose translation.
+
+    Args:
+        target_lang_name (str): The name of the target language.
+
+    Returns:
+        tuple: (header_prompt, prose_prompt)
+    """
     header = (
 f"You are a professional technical header translation engine for {target_lang_name}. "
     "Your output must be a direct 1:1 mapping of the input string.\n\n"
@@ -430,7 +485,14 @@ f"You are a professional technical header translation engine for {target_lang_na
 
 
 def load_guidance(lang):
-    """Load language-specific guidance from scripts directory."""
+    """Load language-specific guidance from scripts directory.
+
+    Args:
+        lang (str): Language code.
+
+    Returns:
+        str: Guidance text or empty string if not found.
+    """
     scripts_dir = os.path.join(BASE_DIR, "scripts")
     guidance_file = os.path.join(scripts_dir, f"{lang}.txt")
     if os.path.exists(guidance_file):
@@ -440,6 +502,18 @@ def load_guidance(lang):
 
 
 def process_chunks(chunks, llm, lang, prompts, lang_guidance):
+    """Process and translate chunks, applying validation.
+
+    Args:
+        chunks (list): List of (type, text) tuples.
+        llm: The LLM instance.
+        lang (str): Target language code.
+        prompts (dict): Prompts dictionary.
+        lang_guidance (str): Language guidance.
+
+    Returns:
+        str: Processed text.
+    """
     final_output = []
     multiplier = HIGH_MULTIPLIER_MAP.get(lang, 3.0)
     total = len(chunks)
@@ -458,7 +532,7 @@ def process_chunks(chunks, llm, lang, prompts, lang_guidance):
         if len(translated) > multiplier * len(ctext):
             print(f"[WARN] Length check failed on chunk {i+1}, reverting."); translated = ctext
         elif any(f in translated for f in FORBIDDEN):
-            print(f"[WARN] Forbidden phrase detected in chunk {i+1}, Hallucination Possibility.")
+            print(f"[WARN] Forbidden phrase detected in chunk {i+1}, Hallucination Warning!.")
         elif ("</div>" in ctext and "</div>" not in translated) or ("</details>" in ctext and "</details>" not in translated):
             print(f"[WARN] HTML structural loss in chunk {i+1}, reverting."); translated = ctext
 
@@ -466,10 +540,19 @@ def process_chunks(chunks, llm, lang, prompts, lang_guidance):
 
     return ''.join(final_output)
 
-
-# 5. Pipeline Orchestration
-
 def run_translation_pipeline(content, llm, lang, prompts, lang_guidance):
+    """Run the full translation pipeline on content.
+
+    Args:
+        content (str): The content to translate.
+        llm: The LLM instance.
+        lang (str): Target language.
+        prompts (dict): Prompts.
+        lang_guidance (str): Guidance.
+
+    Returns:
+        str: Translated content.
+    """
     chunks = get_smart_chunks(content)
     chunks = merge_small_chunks(chunks)
 
@@ -484,7 +567,12 @@ def run_translation_pipeline(content, llm, lang, prompts, lang_guidance):
 
 
 def regenerate_all_navbars(readme_path, locales_dir):
-    """Regenerate navbars for the root README and all locale files."""
+    """Regenerate navigation bars for root and locale READMEs.
+
+    Args:
+        readme_path (str): Path to the root README.
+        locales_dir (str): Path to the locales directory.
+    """
     if not os.path.exists(locales_dir):
         print(f"[INFO] No locales directory found at {locales_dir}. Skipping navbar generation.")
         return
@@ -541,6 +629,14 @@ def regenerate_all_navbars(readme_path, locales_dir):
 
 
 def main(lang, model_path='', nav_target='README.md', mode='translate'):
+    """Main entry point for the translation script.
+
+    Args:
+        lang (str): Target language code.
+        model_path (str): Path to the LLM model.
+        nav_target (str): Path to the target README.
+        mode (str): 'translate' or 'navbar'.
+    """
     readme_path = os.path.abspath(nav_target)
     output_dir = os.path.join(os.getcwd(), "locales")
 
@@ -554,7 +650,6 @@ def main(lang, model_path='', nav_target='README.md', mode='translate'):
     target_lang_name = LANG_MAP.get(lang, "English")
     header_prompt, prose_prompt = get_system_prompts(target_lang_name)
     
-    # Load Guidance (use the safe helper which closes files properly)
     lang_guidance = load_guidance(lang)
 
     os.makedirs(output_dir, exist_ok=True)

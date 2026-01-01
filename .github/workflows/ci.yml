@@ -21,7 +21,7 @@ jobs:
       - name: Create Dummy README
         run: |
           echo "# Test Project" > TEST_README.md
-          echo "This is a test description for the AI translator." >> TEST_README.md
+          echo "This is a test description for the automated translator." >> TEST_README.md
           echo "## Features" >> TEST_README.md
           echo "- Fast translation" >> TEST_README.md
 

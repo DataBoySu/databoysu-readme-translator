@@ -7,7 +7,6 @@ NAV_TARGET="$2"
 MODEL_URL="$3"
 MODE="$4"
 
-# Resolve the directory where this script (and the action) resides
 ACTION_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 echo "[INFO] Action Directory: $ACTION_DIR"
@@ -15,12 +14,9 @@ echo "[INFO] Target Language: $TARGET_LANG"
 echo "[INFO] Mode: ${MODE:-translate}"
 
 if [ "$MODE" != "navbar" ]; then
-    # 1. Install Python Dependencies
     echo "[INFO] Installing dependencies..."
     pip install -r "$ACTION_DIR/requirements.txt"
 
-    # 2. Model Management
-    # Use the cached directory provided by action.yml, or fallback to local models dir
     if [ -n "$MODEL_CACHE_DIR" ]; then
         MODEL_DIR="$MODEL_CACHE_DIR"
     else
@@ -39,7 +35,6 @@ if [ "$MODE" != "navbar" ]; then
     fi
 fi
 
-# 3. Run Translation
 echo "[INFO] Starting Translation Script..."
 python "$ACTION_DIR/translator/translate.py" \
   --lang "$TARGET_LANG" \
