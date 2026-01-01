@@ -448,7 +448,8 @@ def process_chunks(chunks, llm, lang, prompts, lang_guidance):
         if ctype == 'struct' or not ctext.strip():
             final_output.append(ctext + '\n\n'); continue
 
-        print(f"[INFO] Translating chunk {i+1}/{total}...", flush=True)
+        # Show the full chunk being translated for easier debugging and context
+        print(f"[INFO] Translating chunk {i+1}/{total}:\n{ctext}\n---", flush=True)
         is_lone_header = ctext.strip().startswith('#') and '\n' not in ctext.strip()
         
         translated = translate_chunk(ctext, llm, prompts, lang_guidance, is_lone_header)
@@ -457,7 +458,7 @@ def process_chunks(chunks, llm, lang, prompts, lang_guidance):
         if len(translated) > multiplier * len(ctext):
             print(f"[WARN] Length check failed on chunk {i+1}, reverting."); translated = ctext
         elif any(f in translated for f in FORBIDDEN):
-            print(f"[WARN] Forbidden phrase detected in chunk {i+1}, might be hallucinatory.")
+            print(f"[WARN] Forbidden phrase detected in chunk {i+1}, Hallucination Possibility.")
         elif ("</div>" in ctext and "</div>" not in translated) or ("</details>" in ctext and "</details>" not in translated):
             print(f"[WARN] HTML structural loss in chunk {i+1}, reverting."); translated = ctext
 

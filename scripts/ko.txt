@@ -18,6 +18,7 @@ CRITICAL RULES & STYLE:
 3. DO NOT REFORMAT, FIX or TRY TO BE HELPFUL.
 
 Keep numerals exactly as in the source (e.g., "1,438" remains "1,438").
+LANGUAGE PURITY: Output must be entirely in Korean (Hangul). Do not mix in Chinese, Japanese, English, or other languages. 
 
 ### STRICT RULES:
 - NO EXTRA CHATTER: Do not add polite particles or intros.
