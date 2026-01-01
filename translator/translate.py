@@ -497,7 +497,11 @@ def load_guidance(lang):
     guidance_file = os.path.join(scripts_dir, f"{lang}.txt")
     if os.path.exists(guidance_file):
         with open(guidance_file, "r", encoding="utf-8") as f:
-            return f.read().strip()
+            content = f.read().strip()
+        print(f"[INFO] Loaded guidance from {guidance_file}", flush=True)
+        return content
+
+    print(f"[INFO] No guidance file found for '{lang}' at {guidance_file}", flush=True)
     return ""
 
 
@@ -528,7 +532,7 @@ def process_chunks(chunks, llm, lang, prompts, lang_guidance):
         
         translated = translate_chunk(ctext, llm, prompts, lang_guidance, is_lone_header)
 
-        # Local Pipeline Validation Logic
+        # Pipeline Validation Logic
         if len(translated) > multiplier * len(ctext):
             print(f"[WARN] Length check failed on chunk {i+1}, reverting."); translated = ctext
         elif any(f in translated for f in FORBIDDEN):
