@@ -33,7 +33,7 @@ This action runs entirely on the GitHub Runner, ensuring 100% Privacy focused an
 
 - Translate your README into 20+ languages for diverse readers with a single tool.
 - Handles complex READMEs gracefully.
-- Injects and updates a navbar section in your REDADME delimited by
+- Injects and updates a navbar section in your README delimited by
 
 <a href="https://github.com/DataBoySu/waka-readme-stats">
 <img src="assets/nav_bar.png" width="100%" alt="Nav_Bar example repo">
