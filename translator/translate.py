@@ -399,7 +399,10 @@ def translate_chunk(text, llm, prompts, lang_guidance=None, is_lone_header=False
     Returns:
         str: Translated text.
     """
-    base_prompt = prompts['header'] if is_lone_header else prompts['prose']
+
+
+    # base_prompt = prompts['header'] if is_lone_header else prompts['prose']
+    base_prompt = prompts['prose']
     system_content = f"{lang_guidance}\n\n{base_prompt}" if lang_guidance else base_prompt
 
     prompt = (
@@ -424,43 +427,13 @@ def translate_chunk(text, llm, prompts, lang_guidance=None, is_lone_header=False
 
 
 def get_system_prompts(target_lang_name):
-    """Generate system prompts for header and prose translation.
-
-    Args:
-        target_lang_name (str): The name of the target language.
-
-    Returns:
-        tuple: (header_prompt, prose_prompt)
-    """
-    header = (
-f"You are a professional technical header translation engine for {target_lang_name}. "
-    "Your output must be a direct 1:1 mapping of the input string.\n\n"
-    
-    "### CRITICAL OUTPUT RULE:\n"
-    "- Output ONLY the single translated header line. No introductions, no conversational filler.\n"
-    "- The input is a standalone section header; your response must be exactly one line.\n\n"
-    
-    "### SYNTAX & MARKDOWN LOCKDOWN:\n"
-    "- Preserve the '#' symbols exactly (e.g., if the input is '## Setup', the output must start with '## ').\n"
-    "- Do NOT normalize, reflow, or 'fix' the input. Preserve all original punctuation and whitespace exactly.\n"
-    "- Preserve all markdown/code symbols within the header line unchanged.\n\n"
-    
-    "### EXAMPLES:\n"
-    "- Input: '## Setup'\n"
-    "  Output: '## [Translated Setup]'\n"
-    "- Input: '# Introduction 🚀'\n"
-    "  Output: '# [Translated Introduction] 🚀'\n\n"
-    
-    "### STRICTLY FORBIDDEN:\n"
-    "- DO NOT generate any content, lists, descriptions, or placeholder text under the header.\n"
-    "- DO NOT attempt to 'finish' the section or add 'helpful' context.\n"
-    "- Any output beyond the raw translated header line will cause a system crash."
-    )
+    """Generate system prompts for header and prose translation."""
 
     prose = (
     f"You are a professional technical translation engine for {target_lang_name}. "
     "Your output is piped directly into a production file; any deviation will break the system.\n\n"
     "Use <think> to start thinking and </think> to stop thinking. Both tags go together, do not output one, without the other in exact same sequence."
+    "IMMUTABLE SYNTAX BLOCKS: Do not attempt to parse or 'fix' nested syntax; if a code block (```) exists inside a blockquote (>), preserve the exact line-start character sequence including all spaces. Do not wrap my translation in new backticks.\n"
     "### CRITICAL OUTPUT RULES:\n"
     "- Output ONLY the translated text. No introductions, no conversational filler, and no 'Here is the translation'.\n"
     "- STRICTLY FORBIDDEN: Do not add safety disclaimers, warnings, or 'Note:' prefixes regarding API keys or security.\n"
@@ -481,7 +454,7 @@ f"You are a professional technical header translation engine for {target_lang_na
     "- Do NOT normalize, reflow, or 'fix' the input text. Preserve all original whitespace, punctuation, and line breaks exactly.\n"
     "- Translate human text only; leave surrounding technical symbols unchanged."      
     )
-    return header, prose
+    return prose
 
 
 def load_guidance(lang):
